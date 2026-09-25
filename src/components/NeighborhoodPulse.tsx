@@ -243,13 +243,18 @@ export function NeighborhoodPulse({
                   {/* Card Header metadata */}
                   <div className="p-4 pb-2">
                     <div className="flex items-center justify-between text-xs text-stone-500 mb-2">
-                      <div className="flex items-center gap-1.5 font-medium">
+                      <div className="flex items-center gap-1.5 font-medium flex-wrap">
                         {getCategoryIcon(item.category)}
                         <span className="font-semibold text-stone-800">{item.category}</span>
                         <span aria-hidden="true">·</span>
                         <span className="font-mono text-emerald-800 font-medium">
                           {formatDistance(item.distanceMeters || 0)}
                         </span>
+                        {item.distanceMeters <= 1000 && (
+                          <span className="text-[10px] font-mono font-bold text-emerald-800 bg-emerald-100/70 px-1.5 py-0.2 rounded-md">
+                            ⚡ 1km
+                          </span>
+                        )}
                       </div>
 
                       {/* Pillar badge if donor has top tier karma */}

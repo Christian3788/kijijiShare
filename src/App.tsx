@@ -19,6 +19,21 @@ import { GeminiChatbot } from './components/GeminiChatbot';
 import { MapsGroundingFinder } from './components/MapsGroundingFinder';
 import { VeoVideoGenerator } from './components/VeoVideoGenerator';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
+import { NearbyAlertToast } from './components/NearbyAlertToast';
+import { NearbyAlertCenter } from './components/NearbyAlertCenter';
+
+// 1km Alert System & Geospatial calculations
+import { 
+  NearbyNotification, 
+  ConnectionMode, 
+  ConnectionStatus, 
+  playNearbyChime, 
+  requestPushPermission, 
+  showSystemNotification,
+  randomOffsetCoords,
+  HYPERLOCAL_SIMULATION_POOL
+} from './services/nearbyAlertService';
+import { calculateDistanceMeters, formatDistance } from './services/geoService';
 
 // Firebase Auth & Firestore
 import { auth, db, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from './firebase/config';
@@ -37,6 +52,85 @@ export default function App() {
   const [radiusKm, setRadiusKm] = useState<number>(3);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   
+  // 1km Hyperlocal Alert System State
+  const [notifications, setNotifications] = useState<NearbyNotification[]>([
+    {
+      id: 'notif_init_1',
+      listingId: 'listing_sim_dewalt',
+      title: 'DeWalt 20V Cordless Reciprocating Saw',
+      category: 'LEND',
+      giverId: 'sim_samir',
+      giverName: 'Samir Patel',
+      giverNeighborhood: 'Elmwood Crescent',
+      distanceMeters: 380,
+      timestamp: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
+      read: false,
+      type: 'NEW_LEND',
+      listing: {
+        id: 'listing_sim_dewalt',
+        title: 'DeWalt 20V Cordless Reciprocating Saw',
+        description: 'Available to lend for weekend tree pruning. Comes with 2 freshly charged 4Ah batteries and blades.',
+        category: 'LEND',
+        status: 'OFFERED',
+        giverId: 'sim_samir',
+        giverName: 'Samir Patel',
+        giverKarma: 88,
+        giverNeighborhood: 'Elmwood Crescent',
+        giverTrustTier: 'TRUSTED_NEIGHBOR',
+        exactLocation: { lat: 43.6675, lng: -79.4072 },
+        fuzzedLocation: { lat: 43.6672, lng: -79.4068 },
+        pickupLocationDescription: 'Front porch keyless lockbox on Elmwood',
+        estimatedDurationMinutes: 120,
+        toolsRequired: 'Safety goggles and work gloves recommended',
+        locationType: 'IN_PERSON_DOORSTEP',
+        createdAt: new Date(Date.now() - 1000 * 60 * 14).toISOString(),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
+        claimRequests: [],
+        imageUrl: 'https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&w=600&q=80',
+      },
+    },
+    {
+      id: 'notif_init_2',
+      listingId: 'listing_sim_tomato',
+      title: 'Heritage Tomato & Thai Basil Seedling Tray',
+      category: 'GIFT',
+      giverId: 'sim_marina',
+      giverName: 'Marina Kowalski',
+      giverNeighborhood: 'Harbord Village (Croft St)',
+      distanceMeters: 220,
+      timestamp: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
+      read: false,
+      type: 'NEW_GIFT',
+      listing: {
+        id: 'listing_sim_tomato',
+        title: 'Heritage Tomato & Thai Basil Seedling Tray',
+        description: '12 vigorously growing seedlings started in compost. Ready to transplant into balcony containers or garden beds this weekend.',
+        category: 'GIFT',
+        status: 'OFFERED',
+        giverId: 'sim_marina',
+        giverName: 'Marina Kowalski',
+        giverKarma: 92,
+        giverNeighborhood: 'Harbord Village (Croft St)',
+        giverTrustTier: 'TRUSTED_NEIGHBOR',
+        exactLocation: { lat: 43.6640, lng: -79.4030 },
+        fuzzedLocation: { lat: 43.6642, lng: -79.4035 },
+        pickupLocationDescription: 'Porch pickup box on Croft St alleyway',
+        locationType: 'IN_PERSON_DOORSTEP',
+        createdAt: new Date(Date.now() - 1000 * 60 * 4).toISOString(),
+        expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 24).toISOString(),
+        claimRequests: [],
+        imageUrl: 'https://images.unsplash.com/photo-1592417817098-8f3d6910985b?auto=format&fit=crop&w=600&q=80',
+      },
+    },
+  ]);
+  const [activeToastNotification, setActiveToastNotification] = useState<NearbyNotification | null>(null);
+  const [isAlertCenterOpen, setIsAlertCenterOpen] = useState<boolean>(false);
+  const [connectionMode, setConnectionMode] = useState<ConnectionMode>('SIMULATED_WEBSOCKET');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CONNECTED');
+  const [soundEnabled, setSoundEnabled] = useState<boolean>(true);
+  const [autoSimulate, setAutoSimulate] = useState<boolean>(false);
+  const [pushPermission, setPushPermission] = useState<NotificationPermission | 'unsupported'>('default');
+
   // Firebase Auth State
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
 
@@ -146,6 +240,143 @@ export default function App() {
       showToast('Signed out of Firebase.');
     } catch (err: any) {
       showToast(`Sign out error: ${err.message}`);
+    }
+  };
+
+  // 1km Alert System: Check browser push permission on mount
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission);
+    } else {
+      setPushPermission('unsupported');
+    }
+  }, []);
+
+  const handleRequestPushPermission = async () => {
+    const granted = await requestPushPermission();
+    if (granted) {
+      setPushPermission('granted');
+      showToast('Browser push notifications enabled for 1km neighborhood drops!');
+      showSystemNotification(
+        'Push Alerts Activated',
+        'You will receive instant alerts when neighbors post within 1km of your location.'
+      );
+    } else {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        setPushPermission(Notification.permission);
+      }
+      showToast('Push permission was not granted. In-app alerts remain active.');
+    }
+  };
+
+  const handleMarkAsRead = (id: string) => {
+    setNotifications(prev => prev.map(n => n.id === id ? { ...n, read: true } : n));
+  };
+
+  const handleMarkAllAsRead = () => {
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    showToast('All 1km alerts marked as read.');
+  };
+
+  const handleClearAllNotifications = () => {
+    setNotifications([]);
+    showToast('Alert inbox cleared.');
+  };
+
+  const dispatchNearbyAlert = (newListing: Listing) => {
+    const distanceMeters = calculateDistanceMeters(currentUser.homeCoordinates, newListing.fuzzedLocation);
+    if (distanceMeters <= 1000) {
+      const isNeed = newListing.category === 'NEED_ITEM' || newListing.category === 'NEED_HELP';
+      const newNotif: NearbyNotification = {
+        id: `notif_${Date.now()}`,
+        listingId: newListing.id,
+        title: newListing.title,
+        category: newListing.category,
+        giverId: newListing.giverId,
+        giverName: newListing.giverName,
+        giverNeighborhood: newListing.giverNeighborhood,
+        distanceMeters: Math.round(distanceMeters),
+        timestamp: new Date().toISOString(),
+        read: false,
+        listing: newListing,
+        type: isNeed ? 'NEW_NEED' : 'NEW_GIFT',
+        urgencyLevel: newListing.urgencyLevel,
+      };
+
+      setNotifications(prev => [newNotif, ...prev]);
+      setActiveToastNotification(newNotif);
+
+      if (soundEnabled) {
+        playNearbyChime();
+      }
+
+      showSystemNotification(
+        newListing.title,
+        `${formatDistance(distanceMeters)} away in ${newListing.giverNeighborhood} by ${newListing.giverName}`
+      );
+    }
+  };
+
+  const handleTriggerSimulateDrop = () => {
+    const randomIndex = Math.floor(Math.random() * HYPERLOCAL_SIMULATION_POOL.length);
+    const template = HYPERLOCAL_SIMULATION_POOL[randomIndex];
+
+    // Compute random location between 150m and 850m from current user
+    const fuzzed = randomOffsetCoords(currentUser.homeCoordinates, 150, 850);
+    const exact = randomOffsetCoords(fuzzed, 20, 80);
+    const newId = `listing_sim_${Date.now()}`;
+
+    const newSimulatedListing: Listing = {
+      ...template,
+      id: newId,
+      fuzzedLocation: fuzzed,
+      exactLocation: exact,
+      createdAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 1000 * 60 * 60 * 48).toISOString(),
+      claimRequests: [],
+    };
+
+    setListings(prev => [newSimulatedListing, ...prev]);
+    dispatchNearbyAlert(newSimulatedListing);
+    showToast(`Simulated drop: "${template.title}" within 1km!`);
+  };
+
+  // Polling / WebSocket auto-simulation effect
+  useEffect(() => {
+    if (!autoSimulate) return;
+
+    // Simulated WebSocket pushes every ~28s, Polling checks every ~12s
+    const intervalTime = connectionMode === 'SIMULATED_WEBSOCKET' ? 28000 : 12000;
+    const timer = setInterval(() => {
+      handleTriggerSimulateDrop();
+    }, intervalTime);
+
+    return () => clearInterval(timer);
+  }, [autoSimulate, connectionMode, currentUser]);
+
+  const handleSelectListingFromNotification = (listingId: string) => {
+    const found = listings.find(l => l.id === listingId);
+    if (!found) {
+      showToast('Listing not found or expired.');
+      return;
+    }
+
+    if (found.category === 'NEED_ITEM' || found.category === 'NEED_HELP') {
+      setActiveTab('needs');
+      if (found.giverId === currentUser.id) {
+        setSelectedNeedForReview(found);
+      } else {
+        setSelectedNeedForOffer(found);
+      }
+    } else {
+      setActiveTab('feed');
+      if (found.giverId === currentUser.id && found.claimRequests.length > 0) {
+        setSelectedListingForDrawer(found);
+      } else if (found.selectedRecipientId === currentUser.id || found.status === 'GIVER_SELECTED') {
+        setSelectedListingForPickup(found);
+      } else {
+        setSelectedListingForPitch(found);
+      }
     }
   };
 
@@ -513,6 +744,9 @@ export default function App() {
       } else {
         showToast('Listing broadcast to neighbors within 5km radius!');
       }
+
+      // Check and dispatch 1km hyper-local alert
+      dispatchNearbyAlert(newListing);
     }
   };
 
@@ -525,6 +759,15 @@ export default function App() {
           <span>{toastMessage}</span>
         </div>
       )}
+
+      {/* 1km Immediate Radius Push & Toast Alert */}
+      <NearbyAlertToast
+        notification={activeToastNotification}
+        onClose={() => setActiveToastNotification(null)}
+        onViewListing={handleSelectListingFromNotification}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => setSoundEnabled(prev => !prev)}
+      />
 
       {/* Top Navigation */}
       <TopNav
@@ -542,6 +785,8 @@ export default function App() {
         onOpenKarmaLedger={() => setIsKarmaLedgerOpen(true)}
         pendingSyncCount={pendingSyncCount}
         openNeedsCount={openNeedsCount}
+        unreadNotificationCount={notifications.filter(n => !n.read).length}
+        onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
         firebaseUser={firebaseUser}
         onGoogleSignIn={handleGoogleSignIn}
         onGoogleSignOut={handleGoogleSignOut}
@@ -731,6 +976,39 @@ export default function App() {
           onCreateListing={handleCreateListing}
         />
       )}
+
+      {/* 1km Radar Alert Center Drawer */}
+      <NearbyAlertCenter
+        isOpen={isAlertCenterOpen}
+        onClose={() => setIsAlertCenterOpen(false)}
+        notifications={notifications}
+        onMarkAsRead={handleMarkAsRead}
+        onMarkAllAsRead={handleMarkAllAsRead}
+        onClearAll={handleClearAllNotifications}
+        onSelectListing={handleSelectListingFromNotification}
+        connectionMode={connectionMode}
+        onToggleConnectionMode={() => {
+          const newMode = connectionMode === 'SIMULATED_WEBSOCKET' ? 'POLLING' : 'SIMULATED_WEBSOCKET';
+          setConnectionMode(newMode);
+          setConnectionStatus(newMode === 'SIMULATED_WEBSOCKET' ? 'CONNECTED' : 'POLLING');
+          showToast(`Switched alert engine to ${newMode === 'SIMULATED_WEBSOCKET' ? 'WebSocket Stream' : '10s Polling Worker'}.`);
+        }}
+        connectionStatus={connectionStatus}
+        soundEnabled={soundEnabled}
+        onToggleSound={() => setSoundEnabled(prev => !prev)}
+        autoSimulate={autoSimulate}
+        onToggleAutoSimulate={() => {
+          setAutoSimulate(prev => {
+            const next = !prev;
+            showToast(next ? 'Auto-simulation enabled! Neighbors will drop listings periodically.' : 'Auto-simulation paused.');
+            return next;
+          });
+        }}
+        onTriggerSimulateDrop={handleTriggerSimulateDrop}
+        pushPermission={pushPermission}
+        onRequestPushPermission={handleRequestPushPermission}
+        currentNeighborhood={currentUser.neighborhood}
+      />
 
       {/* Minimalist Footer */}
       <footer className="border-t border-stone-200 bg-white py-6 mt-12 text-stone-500 text-xs">

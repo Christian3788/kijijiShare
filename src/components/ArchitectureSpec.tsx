@@ -432,6 +432,44 @@ export function ArchitectureSpec() {
 }`}
                 </div>
               </div>
+
+              {/* Endpoint 5: Real-Time 1km Push Stream & Polling */}
+              <div className="border border-stone-200 rounded-xl overflow-hidden text-xs">
+                <div className="bg-stone-100 p-3 font-mono font-bold flex items-center justify-between text-stone-800">
+                  <div className="flex items-center gap-2">
+                    <span className="bg-purple-700 text-white px-2 py-0.5 rounded text-[10px]">WS / POLL</span>
+                    <span>/api/v1/geo/stream?radius=1000m&lat=43.6652&lng=-79.4045</span>
+                  </div>
+                  <span className="text-[11px] text-stone-500 font-sans font-normal">Immediate 1km Push Broadcast & Polling Fallback</span>
+                </div>
+                <div className="p-4 bg-stone-950 text-stone-300 font-mono text-[11px] overflow-x-auto">
+{`// WEBSOCKET SUBCRIPTION FRAME
+{
+  "action": "SUBSCRIBE_1KM_MESH",
+  "userCoordinates": { "lat": 43.6652, "lng": -79.4045 },
+  "filterCategories": ["GIFT", "LEND", "SKILL", "NEED_ITEM", "NEED_HELP"],
+  "transport": "WEBSOCKET_PRIMARY_OR_HTTP_POLL_10S"
+}
+
+// SERVER BROADCAST EVENT (Emitted immediately when listing <= 1,000m is posted)
+{
+  "event": "listing:nearby:created",
+  "channel": "geo:mesh:1km:dpz83w",
+  "payload": {
+    "id": "lst_8820f12c",
+    "title": "Heritage Tomato & Thai Basil Seedling Tray",
+    "category": "GIFT",
+    "distanceMeters": 220,
+    "giverName": "Marina K.",
+    "giverNeighborhood": "Croft St",
+    "giverTrustTier": "TRUSTED_NEIGHBOR",
+    "chimeTrigger": true,
+    "browserPushTitle": "KijijiShare 1km Alert",
+    "timestamp": "2026-09-25T18:32:00Z"
+  }
+}`}
+                </div>
+              </div>
             </div>
           </div>
         </div>

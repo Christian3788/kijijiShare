@@ -14,7 +14,8 @@ import {
   Radio, 
   LogIn, 
   LogOut, 
-  ChevronDown 
+  ChevronDown,
+  Bell
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -29,6 +30,9 @@ interface TopNavProps {
   onOpenKarmaLedger: () => void;
   pendingSyncCount: number;
   openNeedsCount: number;
+  // 1km Alert System
+  unreadNotificationCount: number;
+  onOpenAlertCenter: () => void;
   // Firebase Auth
   firebaseUser: FirebaseUser | null;
   onGoogleSignIn: () => void;
@@ -52,6 +56,8 @@ export function TopNav({
   onOpenKarmaLedger,
   pendingSyncCount,
   openNeedsCount,
+  unreadNotificationCount,
+  onOpenAlertCenter,
   firebaseUser,
   onGoogleSignIn,
   onGoogleSignOut,
@@ -223,6 +229,24 @@ export function TopNav({
             <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
             <span className="font-mono font-bold text-emerald-900">{currentUser.karmaScore}</span>
             <span className="hidden xl:inline text-stone-500 font-sans text-[11px]">Karma</span>
+          </button>
+
+          {/* 1km Radar Alert Center Bell */}
+          <button
+            onClick={onOpenAlertCenter}
+            title="1km Hyperlocal Alert Radar & Stream"
+            className={`relative p-2 rounded-lg border text-xs font-semibold flex items-center justify-center transition-all cursor-pointer ${
+              unreadNotificationCount > 0
+                ? 'bg-emerald-50 border-emerald-300 text-emerald-900 shadow-2xs hover:bg-emerald-100'
+                : 'bg-stone-100 hover:bg-stone-200 border-stone-200 text-stone-700'
+            }`}
+          >
+            <Bell className={`w-4 h-4 ${unreadNotificationCount > 0 ? 'text-emerald-700 animate-wiggle' : 'text-stone-600'}`} />
+            {unreadNotificationCount > 0 && (
+              <span className="absolute -top-1 -right-1 px-1.5 py-0.2 rounded-full bg-rose-500 text-white font-mono font-bold text-[10px] shadow-sm animate-pulse">
+                {unreadNotificationCount}
+              </span>
+            )}
           </button>
 
           {/* Firebase Google Auth Button */}
