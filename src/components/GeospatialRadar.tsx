@@ -14,7 +14,8 @@ import {
   Package,
   CheckCircle2,
   SlidersHorizontal,
-  Compass
+  Compass,
+  Heart
 } from 'lucide-react';
 
 interface GeospatialRadarProps {
@@ -23,6 +24,8 @@ interface GeospatialRadarProps {
   onSelectListing: (listing: Listing) => void;
   radiusKm: number;
   setRadiusKm: (radius: number) => void;
+  savedListings?: string[];
+  onToggleSaveListing?: (listingId: string) => void;
 }
 
 interface MapCluster {
@@ -43,6 +46,8 @@ export function GeospatialRadar({
   onSelectListing,
   radiusKm,
   setRadiusKm,
+  savedListings,
+  onToggleSaveListing,
 }: GeospatialRadarProps) {
   const [selectedListingId, setSelectedListingId] = useState<string | null>(listings[0]?.id || null);
   const [selectedClusterId, setSelectedClusterId] = useState<string | null>(null);
@@ -650,9 +655,26 @@ export function GeospatialRadar({
                   {getCategoryIcon(selectedListing.category)}
                   {selectedListing.category}
                 </span>
-                <span className="font-mono text-emerald-800 font-bold">
-                  {formatDistance(calculateDistanceMeters(currentUser.homeCoordinates, selectedListing.fuzzedLocation))}
-                </span>
+
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-emerald-800 font-bold">
+                    {formatDistance(calculateDistanceMeters(currentUser.homeCoordinates, selectedListing.fuzzedLocation))}
+                  </span>
+
+                  {onToggleSaveListing && (
+                    <button
+                      onClick={() => onToggleSaveListing(selectedListing.id)}
+                      title={savedListings?.includes(selectedListing.id) ? 'Remove from Saved' : 'Save item'}
+                      className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                        savedListings?.includes(selectedListing.id)
+                          ? 'bg-rose-50 text-rose-500 hover:bg-rose-100 scale-105'
+                          : 'text-stone-400 hover:text-rose-500 hover:bg-stone-100 hover:scale-110'
+                      }`}
+                    >
+                      <Heart className={`w-3.5 h-3.5 ${savedListings?.includes(selectedListing.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div>

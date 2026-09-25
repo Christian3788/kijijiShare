@@ -17,7 +17,8 @@ import {
   Lock,
   ArrowRight,
   Package,
-  Award
+  Award,
+  Heart
 } from 'lucide-react';
 
 interface NeighborhoodPulseProps {
@@ -30,6 +31,8 @@ interface NeighborhoodPulseProps {
   setRadiusKm: (radius: number) => void;
   selectedCategory: string;
   setSelectedCategory: (category: string) => void;
+  savedListings: string[];
+  onToggleSaveListing: (listingId: string) => void;
 }
 
 export function NeighborhoodPulse({
@@ -42,6 +45,8 @@ export function NeighborhoodPulse({
   setRadiusKm,
   selectedCategory,
   setSelectedCategory,
+  savedListings,
+  onToggleSaveListing,
 }: NeighborhoodPulseProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -257,17 +262,35 @@ export function NeighborhoodPulse({
                         )}
                       </div>
 
-                      {/* Pillar badge if donor has top tier karma */}
-                      {isPillar ? (
-                        <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
-                          <ShieldCheck className="w-3 h-3 text-emerald-700" />
-                          Pillar
-                        </span>
-                      ) : (
-                        <div className="text-[11px] text-stone-400">
-                          {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                        </div>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {/* Pillar badge if donor has top tier karma */}
+                        {isPillar ? (
+                          <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                            Pillar
+                          </span>
+                        ) : (
+                          <div className="text-[11px] text-stone-400">
+                            {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                          </div>
+                        )}
+
+                        {/* Saved Heart Toggle */}
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            onToggleSaveListing(item.id);
+                          }}
+                          title={savedListings.includes(item.id) ? 'Remove from Saved' : 'Save item for quick access'}
+                          className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                            savedListings.includes(item.id)
+                              ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 scale-105'
+                              : 'text-stone-400 hover:text-rose-500 hover:bg-stone-100 hover:scale-110'
+                          }`}
+                        >
+                          <Heart className={`w-4 h-4 ${savedListings.includes(item.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                        </button>
+                      </div>
                     </div>
 
                     <h2 className="font-display text-base font-bold text-stone-900 leading-snug line-clamp-2">

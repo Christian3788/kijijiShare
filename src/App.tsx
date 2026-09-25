@@ -21,6 +21,7 @@ import { VeoVideoGenerator } from './components/VeoVideoGenerator';
 import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import { NearbyAlertToast } from './components/NearbyAlertToast';
 import { NearbyAlertCenter } from './components/NearbyAlertCenter';
+import { MySavedListings } from './components/MySavedListings';
 
 // 1km Alert System & Geospatial calculations
 import { 
@@ -45,7 +46,7 @@ import { calculateKarma, deriveTrustTier } from './services/antiHoardingEngine';
 import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'needs' | 'saved' | 'map' | 'anti_hoarding' | 'architecture'>('feed');
   const [users, setUsers] = useState<User[]>(SEED_USERS);
   const [currentUserId, setCurrentUserId] = useState<string>('user_elena');
   const [listings, setListings] = useState<Listing[]>(INITIAL_LISTINGS);
@@ -138,6 +139,42 @@ export default function App() {
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  // Saved Listings (Bookmarks) State with LocalStorage Persistence
+  const [savedListings, setSavedListings] = useState<string[]>(() => {
+    try {
+      const stored = localStorage.getItem('kijijishare_saved_listings');
+      return stored ? JSON.parse(stored) : ['listing_1', 'listing_3'];
+    } catch {
+      return ['listing_1', 'listing_3'];
+    }
+  });
+
+  const handleToggleSaveListing = (listingId: string) => {
+    setSavedListings(prev => {
+      const isSaved = prev.includes(listingId);
+      const updated = isSaved ? prev.filter(id => id !== listingId) : [listingId, ...prev];
+      try {
+        localStorage.setItem('kijijishare_saved_listings', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('LocalStorage save error:', e);
+      }
+      const found = listings.find(l => l.id === listingId);
+      const title = found ? found.title : 'Listing';
+      showToast(isSaved ? `Removed "${title}" from My Saved.` : `Saved "${title}" to My Saved list!`);
+      return updated;
+    });
+  };
+
+  const handleClearAllSaved = () => {
+    setSavedListings([]);
+    try {
+      localStorage.removeItem('kijijishare_saved_listings');
+    } catch (e) {
+      console.warn('LocalStorage remove error:', e);
+    }
+    showToast('Cleared all saved bookmarks.');
+  };
 
   // Modals state
   const [selectedListingForDrawer, setSelectedListingForDrawer] = useState<Listing | null>(null);
@@ -785,6 +822,7 @@ export default function App() {
         onOpenKarmaLedger={() => setIsKarmaLedgerOpen(true)}
         pendingSyncCount={pendingSyncCount}
         openNeedsCount={openNeedsCount}
+        savedCount={savedListings.length}
         unreadNotificationCount={notifications.filter(n => !n.read).length}
         onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
         firebaseUser={firebaseUser}
@@ -810,6 +848,8 @@ export default function App() {
             setRadiusKm={setRadiusKm}
             selectedCategory={selectedCategory}
             setSelectedCategory={setSelectedCategory}
+            savedListings={savedListings}
+            onToggleSaveListing={handleToggleSaveListing}
           />
         )}
 
@@ -826,6 +866,25 @@ export default function App() {
             }}
             radiusKm={radiusKm}
             setRadiusKm={setRadiusKm}
+            savedListings={savedListings}
+            onToggleSaveListing={handleToggleSaveListing}
+          />
+        )}
+
+        {/* My Saved Bookmarks Tab */}
+        {activeTab === 'saved' && (
+          <MySavedListings
+            savedListingIds={savedListings}
+            allListings={listings}
+            currentUser={currentUser}
+            onToggleSaveListing={handleToggleSaveListing}
+            onClearAllSaved={handleClearAllSaved}
+            onExpressInterest={(listing) => setSelectedListingForPitch(listing)}
+            onOpenSelectionDrawer={(listing) => setSelectedListingForDrawer(listing)}
+            onOpenPickupCoordinator={(listing) => setSelectedListingForPickup(listing)}
+            onOpenOfferHelpModal={(need) => setSelectedNeedForOffer(need)}
+            onOpenReviewOffersDrawer={(need) => setSelectedNeedForReview(need)}
+            onNavigateToTab={(tab) => setActiveTab(tab)}
           />
         )}
 
@@ -834,6 +893,8 @@ export default function App() {
           <GeospatialRadar
             listings={listings}
             currentUser={currentUser}
+            savedListings={savedListings}
+            onToggleSaveListing={handleToggleSaveListing}
             onSelectListing={(listing) => {
               if (listing.category === 'NEED_ITEM' || listing.category === 'NEED_HELP') {
                 if (listing.giverId === currentUser.id) {

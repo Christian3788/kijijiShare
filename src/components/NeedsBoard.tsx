@@ -16,7 +16,8 @@ import {
   ArrowRight,
   ShieldCheck,
   Send,
-  Plus
+  Plus,
+  Heart
 } from 'lucide-react';
 
 interface NeedsBoardProps {
@@ -27,6 +28,8 @@ interface NeedsBoardProps {
   onOpenNewNeedModal: () => void;
   radiusKm: number;
   setRadiusKm: (radius: number) => void;
+  savedListings: string[];
+  onToggleSaveListing: (listingId: string) => void;
 }
 
 export function NeedsBoard({
@@ -37,6 +40,8 @@ export function NeedsBoard({
   onOpenNewNeedModal,
   radiusKm,
   setRadiusKm,
+  savedListings,
+  onToggleSaveListing,
 }: NeedsBoardProps) {
   const [filterType, setFilterType] = useState<'ALL' | 'NEED_ITEM' | 'NEED_HELP' | 'URGENT'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -184,17 +189,35 @@ export function NeedsBoard({
                       </span>
                     </div>
 
-                    {/* Urgency Badge */}
-                    {need.urgencyLevel === 'URGENT' ? (
-                      <span className="text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
-                        <AlertCircle className="w-3 h-3 text-rose-600" />
-                        Urgent Need
-                      </span>
-                    ) : (
-                      <span className="text-[11px] text-stone-400">
-                        {new Date(need.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {/* Urgency Badge */}
+                      {need.urgencyLevel === 'URGENT' ? (
+                        <span className="text-[11px] font-bold text-rose-800 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <AlertCircle className="w-3 h-3 text-rose-600" />
+                          Urgent Need
+                        </span>
+                      ) : (
+                        <span className="text-[11px] text-stone-400">
+                          {new Date(need.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </span>
+                      )}
+
+                      {/* Saved Heart Toggle */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onToggleSaveListing(need.id);
+                        }}
+                        title={savedListings.includes(need.id) ? 'Remove from Saved' : 'Save need for quick access'}
+                        className={`p-1.5 rounded-full transition-all cursor-pointer ${
+                          savedListings.includes(need.id)
+                            ? 'bg-rose-50 text-rose-600 hover:bg-rose-100 scale-105'
+                            : 'text-stone-400 hover:text-rose-500 hover:bg-stone-100 hover:scale-110'
+                        }`}
+                      >
+                        <Heart className={`w-4 h-4 ${savedListings.includes(need.id) ? 'fill-rose-500 text-rose-500' : ''}`} />
+                      </button>
+                    </div>
                   </div>
 
                   {/* Title & Description */}

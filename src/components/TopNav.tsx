@@ -15,12 +15,13 @@ import {
   LogIn, 
   LogOut, 
   ChevronDown,
-  Bell
+  Bell,
+  Heart
 } from 'lucide-react';
 
 interface TopNavProps {
-  activeTab: 'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture';
-  setActiveTab: (tab: 'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture') => void;
+  activeTab: 'feed' | 'needs' | 'saved' | 'map' | 'anti_hoarding' | 'architecture';
+  setActiveTab: (tab: 'feed' | 'needs' | 'saved' | 'map' | 'anti_hoarding' | 'architecture') => void;
   currentUser: User;
   allUsers: User[];
   onSelectUser: (user: User) => void;
@@ -30,6 +31,7 @@ interface TopNavProps {
   onOpenKarmaLedger: () => void;
   pendingSyncCount: number;
   openNeedsCount: number;
+  savedCount: number;
   // 1km Alert System
   unreadNotificationCount: number;
   onOpenAlertCenter: () => void;
@@ -56,6 +58,7 @@ export function TopNav({
   onOpenKarmaLedger,
   pendingSyncCount,
   openNeedsCount,
+  savedCount,
   unreadNotificationCount,
   onOpenAlertCenter,
   firebaseUser,
@@ -117,6 +120,25 @@ export function TopNav({
                 activeTab === 'needs' ? 'bg-white text-rose-700' : 'bg-rose-100 text-rose-800'
               }`}>
                 {openNeedsCount}
+              </span>
+            )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('saved')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'saved'
+                ? 'bg-white text-stone-900 shadow-xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <Heart className={`w-3.5 h-3.5 ${savedCount > 0 ? 'text-rose-500 fill-rose-500' : 'text-stone-400'}`} />
+            <span>My Saved</span>
+            {savedCount > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                activeTab === 'saved' ? 'bg-rose-100 text-rose-800' : 'bg-stone-200 text-stone-700'
+              }`}>
+                {savedCount}
               </span>
             )}
           </button>
@@ -329,6 +351,13 @@ export function TopNav({
           className={`px-2 py-1 text-xs font-medium rounded ${activeTab === 'needs' ? 'bg-rose-600 text-white font-bold' : 'text-stone-600'}`}
         >
           Needs ({openNeedsCount})
+        </button>
+        <button
+          onClick={() => setActiveTab('saved')}
+          className={`px-2 py-1 text-xs font-medium rounded flex items-center gap-1 ${activeTab === 'saved' ? 'bg-white text-rose-700 font-bold shadow-xs' : 'text-stone-600'}`}
+        >
+          <Heart className="w-3 h-3 fill-rose-500 text-rose-500" />
+          <span>Saved ({savedCount})</span>
         </button>
         <button
           onClick={() => setActiveTab('map')}
