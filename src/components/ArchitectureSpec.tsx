@@ -186,6 +186,57 @@ export function ArchitectureSpec() {
               </div>
             </div>
           </div>
+
+          {/* Needs Board & Skill Exchange Architecture */}
+          <div className="bg-white rounded-2xl p-6 border border-stone-200 shadow-xs space-y-4">
+            <h2 className="font-display text-lg font-bold text-stone-900">
+              Needs Board & Skill Exchange Workflow Architecture
+            </h2>
+            <p className="text-xs text-stone-600 leading-relaxed">
+              Unlike traditional one-way gift giving, the Needs Board inverts the dynamic: neighbors publish mutual aid requests (items needed, tool borrows, hands-on tasks, or skills), and nearby community members respond with concrete fulfillment offers.
+            </p>
+
+            <div className="p-4 bg-stone-950 rounded-xl font-mono text-xs text-rose-400 space-y-2 overflow-x-auto">
+              <div className="text-stone-400 text-[11px]">// NEEDS BOARD FULFILLMENT PIPELINE</div>
+              <div className="whitespace-pre text-stone-200">
+{` [ NEED_POSTED ] (Seeker lists Item/Task, Urgency Level & Estimated Time)
+        │
+        │  Neighbor Helper reviews and submits assistance proposal
+        ▼
+ [ FULFILLMENT_OFFERED ] (Helper offers Item, Hands-on Help, or Skill Mentorship)
+        │
+        │  Seeker reviews incoming neighbor offers & reliability badges
+        ▼
+ [ HELPER_ACCEPTED ] ────────► [ SCHEDULED_COORDINATION ]
+        │
+        │  Assistance performed (e.g. Porch drop-off, garden bed moved, skill taught)
+        ▼
+ [ NEED_FULFILLED ]
+        │
+        │  Dual-Party Karma & Peer Vouch Endorsement Awarded
+        ▼
+ [ KARMA_RECORDED_TO_LEDGER ]`}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2 text-xs">
+              <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-1.5">
+                <span className="font-bold text-stone-900">Skill & Service Exchange Categories:</span>
+                <p className="text-stone-600 leading-relaxed">
+                  Introduces <code>SKILL</code> (intellectual or craft mentorship e.g., sourdough baking, bike tuning) and <code>SERVICE</code> (hands-on physical assistance e.g., senior snow shoveling, moving heavy furniture). Listings mandate <code>estimatedDurationMinutes</code>, <code>relevantExperience</code>, and <code>toolsRequired</code> to establish crystal-clear expectations.
+                </p>
+              </div>
+
+              <div className="p-4 rounded-xl border border-stone-200 bg-stone-50 space-y-1.5">
+                <span className="font-bold text-stone-900">How Karma Influences Visibility & Claims:</span>
+                <p className="text-stone-600 leading-relaxed">
+                  <strong>1. Listing Visibility:</strong> Users with Karma &ge; 90 earn the <em>Pillar of Neighborhood</em> badge, boosting their items and skill offers in distance-ranked feeds.<br />
+                  <strong>2. Claim Priority:</strong> In selection drawers, high-karma applicants with verified vouches receive a <em>High Reliability Match</em> indicator, reducing flakes for delicate tools.<br />
+                  <strong>3. Anti-Hoarding Capacity:</strong> Expands concurrent active claims (from 2 to 4 or 6) without monetary barriers.
+                </p>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

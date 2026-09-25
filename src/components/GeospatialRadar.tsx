@@ -70,7 +70,9 @@ export function GeospatialRadar({
       case 'GIFT': return <Gift className="w-3.5 h-3.5" />;
       case 'LEND': return <Wrench className="w-3.5 h-3.5" />;
       case 'SKILL': return <Sparkles className="w-3.5 h-3.5" />;
-      case 'ASK': return <HelpCircle className="w-3.5 h-3.5" />;
+      case 'SERVICE': return <Wrench className="w-3.5 h-3.5" />;
+      case 'NEED_ITEM': return <HelpCircle className="w-3.5 h-3.5" />;
+      case 'NEED_HELP': return <HelpCircle className="w-3.5 h-3.5" />;
     }
   };
 

@@ -125,6 +125,12 @@ export function ExpressionSelectionDrawer({
                           <span className="text-emerald-800 font-semibold font-mono">
                             Karma: {req.requesterKarma}/100
                           </span>
+                          {req.requesterKarma >= 80 && req.requesterVouches.length >= 1 && (
+                            <span className="text-[10px] text-emerald-900 bg-emerald-100/90 px-1.5 py-0.2 rounded font-semibold flex items-center gap-1">
+                              <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                              High Reliability Match
+                            </span>
+                          )}
                           <span aria-hidden="true">·</span>
                           <span>{new Date(req.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
                         </div>

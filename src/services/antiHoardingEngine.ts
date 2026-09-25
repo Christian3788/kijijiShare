@@ -1,4 +1,4 @@
-import { User } from '../types';
+import { User, KarmaEvent } from '../types';
 
 export interface EligibilityResult {
   allowed: boolean;
@@ -14,8 +14,6 @@ export interface EligibilityResult {
 
 /**
  * Anti-Hoarding & Fair Distribution Engine
- * Enforces mathematically bounded access to prevent hoarders & resellers
- * while protecting neighbors in genuine need.
  */
 export function checkClaimEligibility(user: User): EligibilityResult {
   // 1. Determine active claim cap based on trust tier
@@ -25,15 +23,14 @@ export function checkClaimEligibility(user: User): EligibilityResult {
   if (user.trustTier === 'PROBATION') maxActive = 1;
 
   // 2. Compute dynamic rolling 7-day window limit
-  // Formula: R_7 = min(8, floor(0.5 * giftsGiven + 4))
-  // Generous base of 4 items/week for those with zero surplus to give
-  const rollingLimit = Math.min(8, Math.floor(0.5 * user.giftsGivenCount + 4));
+  // Base entitlement of 4 items/week for those in need with zero surplus
+  const rollingLimit = Math.min(8, Math.floor(0.5 * (user.giftsGivenCount + user.needsFulfilledCount) + 4));
 
   // 3. Compute Give-to-Receive Ratio
-  const totalInteractions = user.giftsGivenCount + user.giftsReceivedCount;
+  const totalInteractions = user.giftsGivenCount + user.needsFulfilledCount + user.giftsReceivedCount;
   const ratio = totalInteractions === 0 
     ? 1.0 
-    : Number((user.giftsGivenCount / Math.max(1, user.giftsReceivedCount)).toFixed(2));
+    : Number(((user.giftsGivenCount + user.needsFulfilledCount) / Math.max(1, user.giftsReceivedCount)).toFixed(2));
 
   // 4. Check Cooldown timer
   let inCooldown = false;
@@ -47,7 +44,6 @@ export function checkClaimEligibility(user: User): EligibilityResult {
     }
   }
 
-  // Evaluate Constraints
   if (inCooldown) {
     return {
       allowed: false,
@@ -101,14 +97,44 @@ export function checkClaimEligibility(user: User): EligibilityResult {
 
 /**
  * Calculates updated karma score
- * K = clamp(0, 100, 50 + 5*vouches + 3*giftsGiven + 1*giftsReceived - 25*noShows)
+ * K = clamp(0, 100, 50 + 5*vouches + 3*giftsGiven + 5*needsFulfilled + 1*giftsReceived - 25*noShows)
  */
 export function calculateKarma(
   vouchCount: number,
   giftsGiven: number,
+  needsFulfilled: number,
   giftsReceived: number,
   noShows: number
 ): number {
-  const raw = 50 + (vouchCount * 5) + (giftsGiven * 3) + (giftsReceived * 1) - (noShows * 25);
+  const raw = 50 + (vouchCount * 5) + (giftsGiven * 3) + (needsFulfilled * 5) + (giftsReceived * 1) - (noShows * 25);
   return Math.max(0, Math.min(100, raw));
 }
+
+/**
+ * Derives trust tier from karma score and interaction history
+ */
+export function deriveTrustTier(karma: number, noShows = 0): User['trustTier'] {
+  if (noShows > 1 || karma < 50) return 'PROBATION';
+  if (karma >= 90) return 'PILLAR_OF_COMMUNITY';
+  if (karma >= 70) return 'TRUSTED_NEIGHBOR';
+  return 'NEWCOMER';
+}
+
+/**
+ * Evaluates whether an applicant has high reliability matching priority
+ */
+export function isHighReliabilityMatch(karma: number, vouchesCount: number): boolean {
+  return karma >= 75 && vouchesCount >= 2;
+}
+
+/**
+ * Helper to compute karma point rewards
+ */
+export const KARMA_REWARD_RULES = {
+  GIFT_GIVEN: 3,
+  NEED_FULFILLED: 5,
+  SKILL_SHARED: 4,
+  PUNCTUAL_PICKUP: 1,
+  PEER_VOUCH: 5,
+  NO_SHOW_PENALTY: -25,
+};

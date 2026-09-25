@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
-import { User, Listing, ClaimRequest, ListingCategory } from './types';
+import { useState } from 'react';
+import { User, Listing, ClaimRequest, NeedOffer, ListingCategory, KarmaEvent } from './types';
 import { SEED_USERS, INITIAL_LISTINGS } from './data/seedData';
 import { TopNav } from './components/TopNav';
 import { NeighborhoodPulse } from './components/NeighborhoodPulse';
+import { NeedsBoard } from './components/NeedsBoard';
 import { GeospatialRadar } from './components/GeospatialRadar';
 import { AntiHoardingLab } from './components/AntiHoardingLab';
 import { ArchitectureSpec } from './components/ArchitectureSpec';
@@ -10,12 +11,16 @@ import { ExpressionSelectionDrawer } from './components/ExpressionSelectionDrawe
 import { PickupCoordinatorModal } from './components/PickupCoordinatorModal';
 import { ExpressInterestModal } from './components/ExpressInterestModal';
 import { NewListingModal } from './components/NewListingModal';
+import { OfferHelpModal } from './components/OfferHelpModal';
+import { ReviewOffersDrawer } from './components/ReviewOffersDrawer';
+import { KarmaModal } from './components/KarmaModal';
+import { KarmaLedgerModal } from './components/KarmaLedgerModal';
 import { getOfflineDrafts, saveOfflineDraft, removeOfflineDraft } from './services/offlineSync';
-import { calculateKarma } from './services/antiHoardingEngine';
-import { CheckCircle2, Wifi, WifiOff, RefreshCw } from 'lucide-react';
+import { calculateKarma, deriveTrustTier } from './services/antiHoardingEngine';
+import { CheckCircle2 } from 'lucide-react';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'feed' | 'map' | 'anti_hoarding' | 'architecture'>('feed');
+  const [activeTab, setActiveTab] = useState<'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture'>('feed');
   const [users, setUsers] = useState<User[]>(SEED_USERS);
   const [currentUserId, setCurrentUserId] = useState<string>('user_elena');
   const [listings, setListings] = useState<Listing[]>(INITIAL_LISTINGS);
@@ -31,7 +36,18 @@ export default function App() {
   const [selectedListingForDrawer, setSelectedListingForDrawer] = useState<Listing | null>(null);
   const [selectedListingForPickup, setSelectedListingForPickup] = useState<Listing | null>(null);
   const [selectedListingForPitch, setSelectedListingForPitch] = useState<Listing | null>(null);
+  const [selectedNeedForOffer, setSelectedNeedForOffer] = useState<Listing | null>(null);
+  const [selectedNeedForReview, setSelectedNeedForReview] = useState<Listing | null>(null);
+  
   const [isNewListingModalOpen, setIsNewListingModalOpen] = useState<boolean>(false);
+  const [newListingDefaultCategory, setNewListingDefaultCategory] = useState<ListingCategory>('GIFT');
+  
+  // Karma Modals
+  const [isKarmaLedgerOpen, setIsKarmaLedgerOpen] = useState<boolean>(false);
+  const [karmaModalData, setKarmaModalData] = useState<{
+    targetUser: { id: string; name: string; avatar: string; role: 'GIVER' | 'RECIPIENT' | 'HELPER' | 'SEEKER' };
+    transactionTitle: string;
+  } | null>(null);
 
   const currentUser = users.find(u => u.id === currentUserId) || users[0];
 
@@ -40,10 +56,14 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
+  // Open needs count
+  const openNeedsCount = listings.filter(
+    l => (l.category === 'NEED_ITEM' || l.category === 'NEED_HELP') && l.status === 'OFFERED'
+  ).length;
+
   // Toggle offline simulator
   const handleToggleOffline = () => {
     if (isOffline) {
-      // Reconnecting to network: sync offline queue
       setIsOffline(false);
       const drafts = getOfflineDrafts();
       if (drafts.length > 0) {
@@ -59,7 +79,7 @@ export default function App() {
     }
   };
 
-  // 1. Submit pitch (Express Interest)
+  // 1. Submit pitch (Express Interest in a gift/tool)
   const handleSubmitPitch = (listingId: string, pitch: string) => {
     setListings(prev => prev.map(l => {
       if (l.id === listingId) {
@@ -85,7 +105,6 @@ export default function App() {
       return l;
     }));
 
-    // Increment current user's active claims count
     setUsers(prev => prev.map(u => {
       if (u.id === currentUser.id) {
         return {
@@ -121,22 +140,21 @@ export default function App() {
       return l;
     }));
 
-    showToast(`Selected ${claimRequest.requesterName}! Pickup handshake PIN generated.`);
+    showToast(`Selected ${claimRequest.requesterName}! Doorstep pickup PIN generated.`);
   };
 
   // 3. Confirm Handshake (One-time PIN completion)
   const handleConfirmHandshake = (listingId: string, pin: string, vouchBadge?: string) => {
     let targetGiverId = '';
     let targetRecipientId = '';
+    let itemTitle = '';
 
     setListings(prev => prev.map(l => {
       if (l.id === listingId) {
         targetGiverId = l.giverId;
         targetRecipientId = l.selectedRecipientId || '';
-        return {
-          ...l,
-          status: 'FULFILLED',
-        };
+        itemTitle = l.title;
+        return { ...l, status: 'FULFILLED' };
       }
       return l;
     }));
@@ -145,30 +163,47 @@ export default function App() {
     setUsers(prev => prev.map(u => {
       if (u.id === targetGiverId) {
         const updatedGives = u.giftsGivenCount + 1;
-        const updatedKarma = calculateKarma(u.vouchCount, updatedGives, u.giftsReceivedCount, 0);
+        const updatedKarma = calculateKarma(u.vouchCount, updatedGives, u.needsFulfilledCount, u.giftsReceivedCount, 0);
         return {
           ...u,
           giftsGivenCount: updatedGives,
           karmaScore: updatedKarma,
+          trustTier: deriveTrustTier(updatedKarma),
         };
       }
       if (u.id === targetRecipientId) {
         const updatedReceives = u.giftsReceivedCount + 1;
         const updatedActive = Math.max(0, u.activeClaimsCount - 1);
         const updatedVouchCount = vouchBadge ? u.vouchCount + 1 : u.vouchCount;
-        const updatedKarma = calculateKarma(updatedVouchCount, u.giftsGivenCount, updatedReceives, 0);
+        const updatedKarma = calculateKarma(updatedVouchCount, u.giftsGivenCount, u.needsFulfilledCount, updatedReceives, 0);
         return {
           ...u,
           giftsReceivedCount: updatedReceives,
           activeClaimsCount: updatedActive,
           vouchCount: updatedVouchCount,
           karmaScore: updatedKarma,
+          trustTier: deriveTrustTier(updatedKarma),
         };
       }
       return u;
     }));
 
-    showToast('Dual Handshake Verified! Item marked as Fulfilled.');
+    showToast('Dual Handshake Verified! Exchange completed.');
+
+    // Prompt Karma Modal for current user to award karma to their exchange partner
+    const otherUserId = currentUser.id === targetGiverId ? targetRecipientId : targetGiverId;
+    const otherUser = users.find(u => u.id === otherUserId);
+    if (otherUser) {
+      setKarmaModalData({
+        targetUser: {
+          id: otherUser.id,
+          name: otherUser.name,
+          avatar: otherUser.avatar,
+          role: currentUser.id === targetGiverId ? 'RECIPIENT' : 'GIVER',
+        },
+        transactionTitle: itemTitle,
+      });
+    }
   };
 
   // 4. Update scheduled pickup time
@@ -182,7 +217,117 @@ export default function App() {
     showToast('Pickup window updated.');
   };
 
-  // 5. Create new listing
+  // 5. Submit offer to help with a Need
+  const handleSubmitNeedOffer = (needId: string, offerData: Omit<NeedOffer, 'id' | 'createdAt' | 'status'>) => {
+    const newOffer: NeedOffer = {
+      ...offerData,
+      id: `no_${Date.now()}`,
+      status: 'PENDING',
+      createdAt: new Date().toISOString(),
+    };
+
+    setListings(prev => prev.map(l => {
+      if (l.id === needId) {
+        return {
+          ...l,
+          needOffers: [newOffer, ...(l.needOffers || [])],
+        };
+      }
+      return l;
+    }));
+
+    showToast('Assistance offer sent to neighbor!');
+  };
+
+  // 6. Accept helper on a Need
+  const handleAcceptHelper = (needId: string, offer: NeedOffer) => {
+    let needTitle = '';
+    let seekerName = '';
+
+    setListings(prev => prev.map(l => {
+      if (l.id === needId) {
+        needTitle = l.title;
+        seekerName = l.giverName;
+        return {
+          ...l,
+          status: 'FULFILLED',
+          needOffers: (l.needOffers || []).map(o => 
+            o.id === offer.id ? { ...o, status: 'ACCEPTED' } : { ...o, status: 'DECLINED' }
+          ),
+        };
+      }
+      return l;
+    }));
+
+    // Update helper's completed needs count
+    setUsers(prev => prev.map(u => {
+      if (u.id === offer.helperId) {
+        const updatedFulfilled = u.needsFulfilledCount + 1;
+        const updatedKarma = calculateKarma(u.vouchCount, u.giftsGivenCount, updatedFulfilled, u.giftsReceivedCount, 0);
+        return {
+          ...u,
+          needsFulfilledCount: updatedFulfilled,
+          karmaScore: updatedKarma,
+          trustTier: deriveTrustTier(updatedKarma),
+        };
+      }
+      return u;
+    }));
+
+    showToast(`Accepted ${offer.helperName}'s offer! Mutual aid fulfilled.`);
+
+    // Prompt Seeker to award Karma to the helper
+    const helperUser = users.find(u => u.id === offer.helperId);
+    if (helperUser) {
+      setKarmaModalData({
+        targetUser: {
+          id: helperUser.id,
+          name: helperUser.name,
+          avatar: helperUser.avatar,
+          role: 'HELPER',
+        },
+        transactionTitle: needTitle,
+      });
+    }
+  };
+
+  // 7. Award Karma handler
+  const handleAwardKarma = (points: number, badge: string, note: string) => {
+    if (!karmaModalData) return;
+    const { targetUser, transactionTitle } = karmaModalData;
+
+    setUsers(prev => prev.map(u => {
+      if (u.id === targetUser.id) {
+        const newScore = Math.min(100, u.karmaScore + points);
+        const newVouchCount = u.vouchCount + 1;
+        const newEvent: KarmaEvent = {
+          id: `kh_${Date.now()}`,
+          userId: u.id,
+          type: targetUser.role === 'HELPER' ? 'NEED_FULFILLED' : targetUser.role === 'GIVER' ? 'GIFT_GIVEN' : 'PUNCTUAL_PICKUP',
+          points,
+          description: `${note} (${transactionTitle})`,
+          partnerId: currentUser.id,
+          partnerName: currentUser.name,
+          badgeAwarded: badge,
+          timestamp: new Date().toISOString(),
+        };
+
+        return {
+          ...u,
+          karmaScore: newScore,
+          vouchCount: newVouchCount,
+          trustTier: deriveTrustTier(newScore),
+          karmaHistory: [newEvent, ...(u.karmaHistory || [])],
+        };
+      }
+      return u;
+    }));
+
+    showToast(`Awarded +${points} Karma & "${badge}" badge to ${targetUser.name}!`);
+    setKarmaModalData(null);
+  };
+
+  // 8. Create new listing
   const handleCreateListing = (newListing: Listing) => {
     if (isOffline) {
       saveOfflineDraft(newListing);
@@ -191,7 +336,12 @@ export default function App() {
       showToast('Saved to Offline IndexedDB. Will sync when reconnected.');
     } else {
       setListings(prev => [newListing, ...prev]);
-      showToast('Listing broadcast to neighbors within 5km radius!');
+      if (newListing.category === 'NEED_ITEM' || newListing.category === 'NEED_HELP') {
+        showToast('Mutual aid request posted to the Needs Board!');
+        setActiveTab('needs');
+      } else {
+        showToast('Listing broadcast to neighbors within 5km radius!');
+      }
     }
   };
 
@@ -214,12 +364,18 @@ export default function App() {
         onSelectUser={(u) => setCurrentUserId(u.id)}
         isOffline={isOffline}
         onToggleOffline={handleToggleOffline}
-        onOpenNewListing={() => setIsNewListingModalOpen(true)}
+        onOpenNewListing={() => {
+          setNewListingDefaultCategory('GIFT');
+          setIsNewListingModalOpen(true);
+        }}
+        onOpenKarmaLedger={() => setIsKarmaLedgerOpen(true)}
         pendingSyncCount={pendingSyncCount}
+        openNeedsCount={openNeedsCount}
       />
 
       {/* Main Content Area */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 sm:py-8">
+        {/* Surplus Feed Tab */}
         {activeTab === 'feed' && (
           <NeighborhoodPulse
             listings={listings}
@@ -234,12 +390,35 @@ export default function App() {
           />
         )}
 
+        {/* Needs Board Tab */}
+        {activeTab === 'needs' && (
+          <NeedsBoard
+            listings={listings}
+            currentUser={currentUser}
+            onOpenOfferHelpModal={(need) => setSelectedNeedForOffer(need)}
+            onOpenReviewOffersDrawer={(need) => setSelectedNeedForReview(need)}
+            onOpenNewNeedModal={() => {
+              setNewListingDefaultCategory('NEED_ITEM');
+              setIsNewListingModalOpen(true);
+            }}
+            radiusKm={radiusKm}
+            setRadiusKm={setRadiusKm}
+          />
+        )}
+
+        {/* Radar Map Tab */}
         {activeTab === 'map' && (
           <GeospatialRadar
             listings={listings}
             currentUser={currentUser}
             onSelectListing={(listing) => {
-              if (listing.giverId === currentUser.id && listing.claimRequests.length > 0) {
+              if (listing.category === 'NEED_ITEM' || listing.category === 'NEED_HELP') {
+                if (listing.giverId === currentUser.id) {
+                  setSelectedNeedForReview(listing);
+                } else {
+                  setSelectedNeedForOffer(listing);
+                }
+              } else if (listing.giverId === currentUser.id && listing.claimRequests.length > 0) {
                 setSelectedListingForDrawer(listing);
               } else if (listing.selectedRecipientId === currentUser.id || listing.status === 'GIVER_SELECTED') {
                 setSelectedListingForPickup(listing);
@@ -252,10 +431,12 @@ export default function App() {
           />
         )}
 
+        {/* Anti-Hoarding Lab Tab */}
         {activeTab === 'anti_hoarding' && (
           <AntiHoardingLab />
         )}
 
+        {/* Architecture Spec Tab */}
         {activeTab === 'architecture' && (
           <ArchitectureSpec />
         )}
@@ -293,26 +474,65 @@ export default function App() {
         />
       )}
 
+      {selectedNeedForOffer && (
+        <OfferHelpModal
+          isOpen={true}
+          onClose={() => setSelectedNeedForOffer(null)}
+          need={selectedNeedForOffer}
+          currentUser={currentUser}
+          onSubmitOffer={handleSubmitNeedOffer}
+        />
+      )}
+
+      {selectedNeedForReview && (
+        <ReviewOffersDrawer
+          isOpen={true}
+          onClose={() => setSelectedNeedForReview(null)}
+          need={selectedNeedForReview}
+          currentUser={currentUser}
+          onAcceptHelper={handleAcceptHelper}
+        />
+      )}
+
+      {karmaModalData && (
+        <KarmaModal
+          isOpen={true}
+          onClose={() => setKarmaModalData(null)}
+          targetUser={karmaModalData.targetUser}
+          transactionTitle={karmaModalData.transactionTitle}
+          onAwardKarma={handleAwardKarma}
+        />
+      )}
+
+      {isKarmaLedgerOpen && (
+        <KarmaLedgerModal
+          isOpen={true}
+          onClose={() => setIsKarmaLedgerOpen(false)}
+          currentUser={currentUser}
+        />
+      )}
+
       {isNewListingModalOpen && (
         <NewListingModal
           isOpen={true}
           onClose={() => setIsNewListingModalOpen(false)}
           currentUser={currentUser}
           isOffline={isOffline}
+          defaultCategory={newListingDefaultCategory}
           onCreateListing={handleCreateListing}
         />
       )}
 
-      {/* Subtle Minimalist Footer */}
+      {/* Minimalist Footer */}
       <footer className="border-t border-stone-200 bg-white py-6 mt-12 text-stone-500 text-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-stone-800">KijijiShare</span>
             <span aria-hidden="true">·</span>
-            <span>Offline-Resilient Hyperlocal Gift Economy</span>
+            <span>Needs Board · Skill Exchanges · Community Karma Trust Mesh</span>
           </div>
           <div className="text-[11px] text-stone-400">
-            Toroidal PostGIS ST_DWithin Indexing · 300m Privacy Obfuscation · Zero-Barter Mutual Aid
+            PostGIS ST_DWithin Indexing · 300m Privacy Obfuscation · Zero-Barter Mutual Aid
           </div>
         </div>
       </footer>

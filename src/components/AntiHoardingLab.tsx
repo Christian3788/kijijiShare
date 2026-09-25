@@ -19,6 +19,7 @@ export function AntiHoardingLab() {
   // Configurable simulation state
   const [giftsGiven, setGiftsGiven] = useState(1);
   const [giftsReceived, setGiftsReceived] = useState(2);
+  const [needsFulfilled, setNeedsFulfilled] = useState(1);
   const [activeClaims, setActiveClaims] = useState(1);
   const [rollingClaims, setRollingClaims] = useState(2);
   const [vouches, setVouches] = useState(2);
@@ -33,10 +34,11 @@ export function AntiHoardingLab() {
     avatar: '',
     neighborhood: 'Simulation District',
     homeCoordinates: { lat: 43.6652, lng: -79.4045 },
-    karmaScore: calculateKarma(vouches, giftsGiven, giftsReceived, noShows),
+    karmaScore: calculateKarma(vouches, giftsGiven, needsFulfilled, giftsReceived, noShows),
     vouchCount: vouches,
     giftsGivenCount: giftsGiven,
     giftsReceivedCount: giftsReceived,
+    needsFulfilledCount: needsFulfilled,
     activeClaimsCount: activeClaims,
     rolling7DayClaimsCount: rollingClaims,
     isVerifiedNeighbor: true,

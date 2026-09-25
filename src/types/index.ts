@@ -1,4 +1,10 @@
-export type ListingCategory = 'GIFT' | 'LEND' | 'SKILL' | 'ASK';
+export type ListingCategory = 
+  | 'GIFT'          // Physical items given away permanently
+  | 'LEND'          // Tools/appliances borrowed temporarily
+  | 'SKILL'         // Teaching or mentorship shared
+  | 'SERVICE'       // Hands-on physical help, repair, or chores
+  | 'NEED_ITEM'     // Mutual aid: looking for a physical item
+  | 'NEED_HELP';    // Mutual aid: looking for hands-on help or skill
 
 export type ListingStatus = 
   | 'OFFERED'
@@ -23,6 +29,7 @@ export interface User {
   vouchCount: number;
   giftsGivenCount: number;
   giftsReceivedCount: number;
+  needsFulfilledCount: number;
   activeClaimsCount: number;
   rolling7DayClaimsCount: number;
   lastClaimFulfilledAt?: string;
@@ -30,6 +37,7 @@ export interface User {
   trustTier: 'NEWCOMER' | 'TRUSTED_NEIGHBOR' | 'PILLAR_OF_COMMUNITY' | 'PROBATION';
   cooldownUntil?: string;
   vouches: Vouch[];
+  karmaHistory?: KarmaEvent[];
 }
 
 export interface Vouch {
@@ -38,9 +46,21 @@ export interface Vouch {
   voucherName: string;
   voucherNeighborhood: string;
   recipientId: string;
-  badge: 'Punctual Pickup' | 'Generous Giver' | 'Tool Caretaker' | 'Known Neighbor';
+  badge: 'Punctual Pickup' | 'Generous Giver' | 'Tool Caretaker' | 'Known Neighbor' | 'Skilled Helper' | 'Reliable Neighbor';
   comment: string;
   createdAt: string;
+}
+
+export interface KarmaEvent {
+  id: string;
+  userId: string;
+  type: 'GIFT_GIVEN' | 'NEED_FULFILLED' | 'SKILL_SHARED' | 'PUNCTUAL_PICKUP' | 'PEER_VOUCH' | 'NO_SHOW_PENALTY';
+  points: number;
+  description: string;
+  partnerId: string;
+  partnerName: string;
+  badgeAwarded?: string;
+  timestamp: string;
 }
 
 export interface ClaimRequest {
@@ -57,6 +77,22 @@ export interface ClaimRequest {
   createdAt: string;
 }
 
+export interface NeedOffer {
+  id: string;
+  listingId: string;
+  helperId: string;
+  helperName: string;
+  helperAvatar: string;
+  helperKarma: number;
+  helperDistanceMeters: number;
+  helperVouches: string[];
+  offerType: 'ITEM' | 'SKILL' | 'HANDS_ON_HELP';
+  message: string;
+  availability: string;
+  status: 'PENDING' | 'ACCEPTED' | 'DECLINED';
+  createdAt: string;
+}
+
 export interface Listing {
   id: string;
   title: string;
@@ -67,23 +103,40 @@ export interface Listing {
   giverName: string;
   giverKarma: number;
   giverNeighborhood: string;
+  giverTrustTier?: User['trustTier'];
+  
   // Exact private coordinates (only revealed when GIVER_SELECTED & safe agreement reached)
   exactLocation: Coordinates;
   // Fuzzed coordinates (300m randomized offset for public feed/map)
   fuzzedLocation: Coordinates;
   pickupLocationDescription?: string; // Revealed only to selected recipient
   distanceMeters?: number; // Calculated relative to current viewer
+  
+  // Media & optimization
   imageUrl?: string;
   imageCompressedBytes?: number;
   imageOriginalBytes?: number;
+  
+  // Skill & Service exchange metadata
+  estimatedDurationMinutes?: number; // e.g. 60, 120
+  relevantExperience?: string;       // e.g. "5 yrs bicycle mechanics", "Licensed electrician", "Self-taught baker"
+  toolsRequired?: string;            // e.g. "I bring drill and bits", "Ladder needed on site"
+  locationType?: 'IN_PERSON_DOORSTEP' | 'IN_PERSON_PUBLIC' | 'REMOTE_VIRTUAL';
+  urgencyLevel?: 'LOW' | 'NORMAL' | 'URGENT'; // for Needs Board
+  
   createdAt: string;
   expiresAt: string;
+  
+  // Matching & Handshake coordination
   selectedRecipientId?: string;
   selectedRecipientName?: string;
   scheduledPickupTime?: string;
   handshakePin?: string; // 6-digit one-time confirmation code
   isOfflineDraft?: boolean;
+  
+  // Inbound responses
   claimRequests: ClaimRequest[];
+  needOffers?: NeedOffer[];
 }
 
 export interface TransferLog {
@@ -95,6 +148,9 @@ export interface TransferLog {
   recipientConfirmed: boolean;
   handshakePinEntered: string;
   completedAt: string;
+  karmaAwardedGiver: number;
+  karmaAwardedRecipient: number;
+  vouchAwarded?: string;
   mutualFeedback?: {
     punctual: boolean;
     pleasant: boolean;
@@ -103,8 +159,8 @@ export interface TransferLog {
 }
 
 export interface AntiHoardingRules {
-  maxActiveClaims: number; // e.g. 2 for newcomers, 4 for trusted
-  rolling7DayLimit: number; // e.g. 5 items per rolling 7 days
-  minGiveToReceiveRatio: number; // e.g. 0.33 (1 give per 3 receives)
-  cooldownHoursPostClaim: number; // e.g. 24h cooldown after 2 fast claims
+  maxActiveClaims: number;
+  rolling7DayLimit: number;
+  minGiveToReceiveRatio: number;
+  cooldownHoursPostClaim: number;
 }

@@ -1,16 +1,18 @@
 import { User } from '../types';
-import { Wifi, WifiOff, Plus, ShieldCheck, MapPin, UserCheck } from 'lucide-react';
+import { Wifi, WifiOff, Plus, ShieldCheck, MapPin, HeartHandshake, Sparkles } from 'lucide-react';
 
 interface TopNavProps {
-  activeTab: 'feed' | 'map' | 'anti_hoarding' | 'architecture';
-  setActiveTab: (tab: 'feed' | 'map' | 'anti_hoarding' | 'architecture') => void;
+  activeTab: 'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture';
+  setActiveTab: (tab: 'feed' | 'needs' | 'map' | 'anti_hoarding' | 'architecture') => void;
   currentUser: User;
   allUsers: User[];
   onSelectUser: (user: User) => void;
   isOffline: boolean;
   onToggleOffline: () => void;
   onOpenNewListing: () => void;
+  onOpenKarmaLedger: () => void;
   pendingSyncCount: number;
+  openNeedsCount: number;
 }
 
 export function TopNav({
@@ -22,7 +24,9 @@ export function TopNav({
   isOffline,
   onToggleOffline,
   onOpenNewListing,
+  onOpenKarmaLedger,
   pendingSyncCount,
+  openNeedsCount,
 }: TopNavProps) {
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-stone-200">
@@ -49,49 +53,82 @@ export function TopNav({
         <nav className="hidden md:flex items-center gap-1 p-1 bg-stone-100 rounded-lg">
           <button
             onClick={() => setActiveTab('feed')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'feed'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-white text-stone-900 shadow-xs font-semibold'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            Neighborhood Pulse
+            Surplus Feed
           </button>
+
+          <button
+            onClick={() => setActiveTab('needs')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer flex items-center gap-1.5 ${
+              activeTab === 'needs'
+                ? 'bg-rose-600 text-white shadow-xs font-semibold'
+                : 'text-stone-600 hover:text-stone-900'
+            }`}
+          >
+            <HeartHandshake className="w-3.5 h-3.5" />
+            <span>Needs Board</span>
+            {openNeedsCount > 0 && (
+              <span className={`text-[10px] px-1.5 py-0.2 rounded-full font-mono font-bold ${
+                activeTab === 'needs' ? 'bg-white text-rose-700' : 'bg-rose-100 text-rose-800'
+              }`}>
+                {openNeedsCount}
+              </span>
+            )}
+          </button>
+
           <button
             onClick={() => setActiveTab('map')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'map'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-white text-stone-900 shadow-xs font-semibold'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            Geospatial Radar
+            Radar Map
           </button>
+
           <button
             onClick={() => setActiveTab('anti_hoarding')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'anti_hoarding'
-                ? 'bg-white text-stone-900 shadow-xs'
+                ? 'bg-white text-stone-900 shadow-xs font-semibold'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            Anti-Hoarding Lab
+            Fair Share
           </button>
+
           <button
             onClick={() => setActiveTab('architecture')}
-            className={`px-3.5 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
               activeTab === 'architecture'
-                ? 'bg-emerald-900 text-white shadow-xs'
+                ? 'bg-emerald-900 text-white shadow-xs font-semibold'
                 : 'text-stone-600 hover:text-stone-900'
             }`}
           >
-            System Specification
+            System Spec
           </button>
         </nav>
 
-        {/* Zone 3: Actions & Persona switcher */}
+        {/* Zone 3: Actions, Karma Chip, & Persona Switcher */}
         <div className="flex items-center gap-2.5">
-          {/* Offline Engine Toggle */}
+          {/* Karma Score Chip (Clickable for Ledger) */}
+          <button
+            onClick={onOpenKarmaLedger}
+            title="Click to view Karma Score & Trust Ledger"
+            className="flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-200 rounded-lg text-xs transition-colors cursor-pointer"
+          >
+            <Sparkles className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="font-mono font-bold text-emerald-900">{currentUser.karmaScore}</span>
+            <span className="hidden xl:inline text-stone-500 font-sans text-[11px]">Karma</span>
+          </button>
+
+          {/* Offline Mesh Toggle */}
           <button
             onClick={onToggleOffline}
             title={isOffline ? 'Offline mode active (Click to simulate reconnect)' : 'Online mode (Click to simulate offline mesh)'}
@@ -104,7 +141,7 @@ export function TopNav({
             {isOffline ? (
               <>
                 <WifiOff className="w-3.5 h-3.5 text-amber-700" />
-                <span className="hidden sm:inline">Offline Mesh</span>
+                <span className="hidden sm:inline">Offline</span>
                 {pendingSyncCount > 0 && (
                   <span className="bg-amber-600 text-white text-[10px] px-1.5 py-0.2 rounded-full font-mono">
                     {pendingSyncCount}
@@ -119,7 +156,7 @@ export function TopNav({
             )}
           </button>
 
-          {/* Persona Dropdown */}
+          {/* Persona Switcher */}
           <div className="relative group">
             <select
               value={currentUser.id}
@@ -138,14 +175,14 @@ export function TopNav({
             </select>
           </div>
 
-          {/* New Gift/Ask CTA */}
+          {/* New Share / Need CTA */}
           <button
             onClick={onOpenNewListing}
             className="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-800 hover:bg-emerald-700 rounded-lg shadow-xs flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap active:scale-95"
           >
             <Plus className="w-3.5 h-3.5" />
-            <span className="hidden sm:inline">Share or Ask</span>
-            <span className="sm:hidden">Share</span>
+            <span className="hidden sm:inline">Post Share or Need</span>
+            <span className="sm:hidden">Post</span>
           </button>
         </div>
       </div>
@@ -156,7 +193,13 @@ export function TopNav({
           onClick={() => setActiveTab('feed')}
           className={`px-2.5 py-1 text-xs font-medium rounded ${activeTab === 'feed' ? 'bg-white text-emerald-950 font-bold shadow-xs' : 'text-stone-600'}`}
         >
-          Pulse
+          Feed
+        </button>
+        <button
+          onClick={() => setActiveTab('needs')}
+          className={`px-2.5 py-1 text-xs font-medium rounded ${activeTab === 'needs' ? 'bg-rose-600 text-white font-bold' : 'text-stone-600'}`}
+        >
+          Needs ({openNeedsCount})
         </button>
         <button
           onClick={() => setActiveTab('map')}

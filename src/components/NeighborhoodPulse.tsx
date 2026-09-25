@@ -6,6 +6,7 @@ import {
   Gift, 
   Wrench, 
   Sparkles, 
+  Briefcase, 
   HelpCircle, 
   ShieldCheck, 
   CheckCircle2, 
@@ -14,7 +15,9 @@ import {
   ChevronRight, 
   AlertCircle,
   Lock,
-  ArrowRight
+  ArrowRight,
+  Package,
+  Award
 } from 'lucide-react';
 
 interface NeighborhoodPulseProps {
@@ -42,8 +45,13 @@ export function NeighborhoodPulse({
 }: NeighborhoodPulseProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Calculate distance for each listing from currentUser
-  const listingsWithDistance = listings.map(listing => {
+  // Exclude direct Needs from the surplus pulse feed (since they belong on the Needs Board)
+  // unless user selected ALL
+  const surplusListings = listings.filter(
+    item => item.category !== 'NEED_ITEM' && item.category !== 'NEED_HELP'
+  );
+
+  const listingsWithDistance = surplusListings.map(listing => {
     const distMeters = calculateDistanceMeters(currentUser.homeCoordinates, listing.fuzzedLocation);
     return {
       ...listing,
@@ -51,14 +59,10 @@ export function NeighborhoodPulse({
     };
   });
 
-  // Filter listings
   const filteredListings = listingsWithDistance
     .filter(item => {
-      // Radius filter
       if (item.distanceMeters > radiusKm * 1000) return false;
-      // Category filter
       if (selectedCategory !== 'ALL' && item.category !== selectedCategory) return false;
-      // Search
       if (searchQuery.trim()) {
         const query = searchQuery.toLowerCase();
         const matchesTitle = item.title.toLowerCase().includes(query);
@@ -68,7 +72,13 @@ export function NeighborhoodPulse({
       }
       return true;
     })
-    .sort((a, b) => a.distanceMeters - b.distanceMeters);
+    .sort((a, b) => {
+      // Visibility boost: Pillars of Community slightly elevated if nearby
+      const aIsPillar = a.giverKarma >= 90 ? 1 : 0;
+      const bIsPillar = b.giverKarma >= 90 ? 1 : 0;
+      if (aIsPillar !== bIsPillar) return bIsPillar - aIsPillar;
+      return a.distanceMeters - b.distanceMeters;
+    });
 
   const eligibility = checkClaimEligibility(currentUser);
 
@@ -77,7 +87,9 @@ export function NeighborhoodPulse({
       case 'GIFT': return <Gift className="w-4 h-4 text-emerald-700" />;
       case 'LEND': return <Wrench className="w-4 h-4 text-blue-700" />;
       case 'SKILL': return <Sparkles className="w-4 h-4 text-amber-700" />;
-      case 'ASK': return <HelpCircle className="w-4 h-4 text-rose-700" />;
+      case 'SERVICE': return <Briefcase className="w-4 h-4 text-indigo-700" />;
+      case 'NEED_ITEM': return <Package className="w-4 h-4 text-rose-700" />;
+      case 'NEED_HELP': return <HelpCircle className="w-4 h-4 text-rose-700" />;
     }
   };
 
@@ -105,17 +117,17 @@ export function NeighborhoodPulse({
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs text-stone-500 mb-1">
-              <span>Hyperlocal Boundary</span>
+              <span>Hyperlocal Surplus Mesh</span>
               <span aria-hidden="true">·</span>
               <span>Toroidal Geospatial Filter</span>
               <span aria-hidden="true">·</span>
               <span className="text-emerald-800 font-medium">Safe Porch & Lobby Distance</span>
             </div>
             <h1 className="font-display text-xl sm:text-2xl font-bold text-stone-900 tracking-tight">
-              Neighborhood Pulse
+              Neighborhood Surplus &amp; Skill Feed
             </h1>
             <p className="text-sm text-stone-600 mt-0.5">
-              Items and aid shared freely within walking and biking distance. Non-transactional, thoughtful matching.
+              Gifts, tool borrows, and practical skills shared freely without monetary transactions.
             </p>
           </div>
 
@@ -145,18 +157,18 @@ export function NeighborhoodPulse({
           {/* Category Segmented Control */}
           <div className="flex items-center gap-1 p-1 bg-stone-200/70 rounded-lg overflow-x-auto max-w-full">
             {[
-              { id: 'ALL', label: 'All Items' },
+              { id: 'ALL', label: 'All Surplus' },
               { id: 'GIFT', label: 'Gifts' },
               { id: 'LEND', label: 'Tool Lending' },
-              { id: 'SKILL', label: 'Skills' },
-              { id: 'ASK', label: 'Mutual Asks' },
+              { id: 'SKILL', label: 'Skill Mentorship' },
+              { id: 'SERVICE', label: 'Hands-on Help' },
             ].map(cat => (
               <button
                 key={cat.id}
                 onClick={() => setSelectedCategory(cat.id)}
                 className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all whitespace-nowrap cursor-pointer ${
                   selectedCategory === cat.id
-                    ? 'bg-white text-stone-900 shadow-xs'
+                    ? 'bg-white text-stone-900 shadow-xs font-semibold'
                     : 'text-stone-600 hover:text-stone-900'
                 }`}
               >
@@ -175,7 +187,7 @@ export function NeighborhoodPulse({
                   onClick={() => setRadiusKm(r)}
                   className={`px-2.5 py-1 text-xs font-mono font-medium rounded-md transition-all cursor-pointer ${
                     radiusKm === r
-                      ? 'bg-emerald-900 text-white shadow-xs'
+                      ? 'bg-emerald-900 text-white shadow-xs font-bold'
                       : 'text-stone-600 hover:text-stone-900'
                   }`}
                 >
@@ -220,6 +232,7 @@ export function NeighborhoodPulse({
             const isSelectedRecipient = item.selectedRecipientId === currentUser.id;
             const hasRequested = item.claimRequests.some(r => r.requesterId === currentUser.id);
             const statusInfo = getStatusDisplay(item);
+            const isPillar = item.giverKarma >= 90;
 
             return (
               <div
@@ -238,9 +251,18 @@ export function NeighborhoodPulse({
                           {formatDistance(item.distanceMeters || 0)}
                         </span>
                       </div>
-                      <div className="text-[11px] text-stone-400">
-                        {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                      </div>
+
+                      {/* Pillar badge if donor has top tier karma */}
+                      {isPillar ? (
+                        <span className="text-[10px] font-bold text-emerald-900 bg-emerald-100/80 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <ShieldCheck className="w-3 h-3 text-emerald-700" />
+                          Pillar
+                        </span>
+                      ) : (
+                        <div className="text-[11px] text-stone-400">
+                          {new Date(item.createdAt).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                        </div>
+                      )}
                     </div>
 
                     <h2 className="font-display text-base font-bold text-stone-900 leading-snug line-clamp-2">
@@ -250,6 +272,30 @@ export function NeighborhoodPulse({
                     <p className="text-stone-600 text-xs mt-2 line-clamp-3 leading-relaxed">
                       {item.description}
                     </p>
+
+                    {/* Skill / Service Exchange Metadata (Duration, Experience, Tools) */}
+                    {(item.estimatedDurationMinutes || item.relevantExperience || item.toolsRequired) && (
+                      <div className="mt-3 bg-stone-50 rounded-xl p-2.5 border border-stone-100 text-[11px] text-stone-600 space-y-1">
+                        {item.estimatedDurationMinutes && (
+                          <div className="flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                            <span>Duration: <strong className="text-stone-800 font-mono">{item.estimatedDurationMinutes} mins</strong></span>
+                          </div>
+                        )}
+                        {item.relevantExperience && (
+                          <div className="flex items-center gap-1.5">
+                            <Award className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                            <span className="line-clamp-1">Experience: {item.relevantExperience}</span>
+                          </div>
+                        )}
+                        {item.toolsRequired && (
+                          <div className="flex items-center gap-1.5">
+                            <Wrench className="w-3.5 h-3.5 text-stone-400 shrink-0" />
+                            <span className="line-clamp-1">{item.toolsRequired}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
 
                   {/* Privacy & Fuzzed Location Indicator */}
@@ -279,7 +325,6 @@ export function NeighborhoodPulse({
 
                 {/* Card Actions Footer */}
                 <div className="p-4 pt-2 border-t border-stone-100 bg-stone-50/40">
-                  {/* Case 1: Current User is Giver and neighbors expressed interest */}
                   {isGiver ? (
                     <div className="space-y-2">
                       {item.status === 'INTEREST_EXPRESSED' && (
@@ -313,7 +358,6 @@ export function NeighborhoodPulse({
                       )}
                     </div>
                   ) : isSelectedRecipient ? (
-                    /* Case 2: Current User was selected as recipient */
                     <button
                       onClick={() => onOpenPickupCoordinator(item)}
                       className="w-full py-2 px-3 bg-blue-700 hover:bg-blue-600 text-white text-xs font-semibold rounded-xl flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
@@ -322,13 +366,11 @@ export function NeighborhoodPulse({
                       <span>You Were Selected! View Pickup Details</span>
                     </button>
                   ) : hasRequested ? (
-                    /* Case 3: Already requested */
                     <div className="py-2 px-3 bg-stone-100 text-stone-600 text-xs font-medium rounded-xl text-center flex items-center justify-center gap-1.5">
                       <Clock className="w-3.5 h-3.5 text-stone-400" />
                       <span>Your story was sent to {item.giverName}</span>
                     </div>
                   ) : item.status === 'OFFERED' || item.status === 'INTEREST_EXPRESSED' ? (
-                    /* Case 4: Open for claiming */
                     <button
                       onClick={() => onExpressInterest(item)}
                       disabled={!eligibility.allowed}
@@ -342,7 +384,6 @@ export function NeighborhoodPulse({
                       <ChevronRight className="w-3.5 h-3.5" />
                     </button>
                   ) : (
-                    /* Case 5: In progress with another neighbor or fulfilled */
                     <div className="py-2 text-center text-xs text-stone-400 font-medium">
                       {item.status === 'FULFILLED' ? 'Item gifted' : 'Recipient already coordinated'}
                     </div>
