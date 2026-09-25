@@ -32,6 +32,7 @@ interface MySavedListingsProps {
   onOpenOfferHelpModal: (need: Listing) => void;
   onOpenReviewOffersDrawer: (need: Listing) => void;
   onNavigateToTab: (tab: 'feed' | 'needs' | 'map') => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function MySavedListings({
@@ -46,6 +47,7 @@ export function MySavedListings({
   onOpenOfferHelpModal,
   onOpenReviewOffersDrawer,
   onNavigateToTab,
+  onViewProfile,
 }: MySavedListingsProps) {
   const [filterCategory, setFilterCategory] = useState<string>('ALL');
   const [searchQuery, setSearchQuery] = useState<string>('');
@@ -310,7 +312,17 @@ export function MySavedListings({
                 <div className="p-4 pt-3 border-t border-stone-100 bg-stone-50/50 mt-2 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <div className="flex items-center gap-1.5">
-                      <span className="font-semibold text-stone-800">{item.giverName}</span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewProfile?.(item.giverId);
+                        }}
+                        title={`View ${item.giverName}'s profile & vouches`}
+                        className="font-semibold text-stone-800 hover:text-emerald-800 hover:underline cursor-pointer"
+                      >
+                        {item.giverName}
+                      </button>
                       <span className="text-stone-400">·</span>
                       <span className="font-mono text-emerald-700 font-bold">{item.giverKarma} Karma</span>
                     </div>

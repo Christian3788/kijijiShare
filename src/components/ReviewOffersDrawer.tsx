@@ -22,6 +22,7 @@ interface ReviewOffersDrawerProps {
   need: Listing;
   currentUser: User;
   onAcceptHelper: (needId: string, offer: NeedOffer) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function ReviewOffersDrawer({
@@ -30,6 +31,7 @@ export function ReviewOffersDrawer({
   need,
   currentUser,
   onAcceptHelper,
+  onViewProfile,
 }: ReviewOffersDrawerProps) {
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
 
@@ -114,9 +116,17 @@ export function ReviewOffersDrawer({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-display font-bold text-sm text-stone-900">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewProfile?.(offer.helperId);
+                            }}
+                            title={`View ${offer.helperName}'s profile & vouches`}
+                            className="font-display font-bold text-sm text-stone-900 hover:text-rose-700 hover:underline cursor-pointer text-left"
+                          >
                             {offer.helperName}
-                          </span>
+                          </button>
                           <span className="text-[11px] text-stone-500 flex items-center gap-1 font-mono">
                             <MapPin className="w-3 h-3 text-stone-400" />
                             {formatDistance(offer.helperDistanceMeters)}

@@ -32,6 +32,8 @@ interface TopNavProps {
   pendingSyncCount: number;
   openNeedsCount: number;
   savedCount: number;
+  // User Profile
+  onOpenUserProfile?: (user: User) => void;
   // 1km Alert System
   unreadNotificationCount: number;
   onOpenAlertCenter: () => void;
@@ -59,6 +61,7 @@ export function TopNav({
   pendingSyncCount,
   openNeedsCount,
   savedCount,
+  onOpenUserProfile,
   unreadNotificationCount,
   onOpenAlertCenter,
   firebaseUser,
@@ -307,23 +310,44 @@ export function TopNav({
             </button>
           )}
 
-          {/* Persona Switcher */}
-          <div className="relative group">
-            <select
-              value={currentUser.id}
-              onChange={(e) => {
-                const found = allUsers.find(u => u.id === e.target.value);
-                if (found) onSelectUser(found);
-              }}
-              aria-label="Active Persona"
-              className="text-xs bg-stone-100 hover:bg-stone-200 border-none font-medium text-stone-800 py-1.5 pl-2.5 pr-7 rounded-lg cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+          {/* Persona Switcher & Profile View */}
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={() => onOpenUserProfile?.(currentUser)}
+              title={`View ${currentUser.name}'s Profile, Verified status & Vouches`}
+              className="flex items-center gap-1.5 p-1.5 bg-stone-100 hover:bg-stone-200 border border-stone-200 rounded-lg text-xs font-semibold text-stone-800 transition-colors cursor-pointer"
             >
-              {allUsers.map(user => (
-                <option key={user.id} value={user.id}>
-                  {user.name.split(' ')[0]} ({user.id === 'user_elena' ? 'Giver' : user.id === 'user_marcus' ? 'Recipient' : user.trustTier})
-                </option>
-              ))}
-            </select>
+              <img
+                src={currentUser.avatar}
+                alt={currentUser.name}
+                className="w-5 h-5 rounded-full object-cover shrink-0 border border-emerald-500/50"
+                referrerPolicy="no-referrer"
+              />
+              <span className="hidden xl:inline text-xs font-semibold">{currentUser.name.split(' ')[0]}</span>
+              {currentUser.isVerifiedNeighbor ? (
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+              ) : (
+                <span className="w-2 h-2 rounded-full bg-amber-400 shrink-0" title="Awaiting Vouch" />
+              )}
+            </button>
+
+            <div className="relative group">
+              <select
+                value={currentUser.id}
+                onChange={(e) => {
+                  const found = allUsers.find(u => u.id === e.target.value);
+                  if (found) onSelectUser(found);
+                }}
+                aria-label="Active Persona"
+                className="text-xs bg-stone-100 hover:bg-stone-200 border-none font-medium text-stone-800 py-1.5 pl-2 pr-6 rounded-lg cursor-pointer focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+              >
+                {allUsers.map(user => (
+                  <option key={user.id} value={user.id}>
+                    {user.name.split(' ')[0]} ({user.isVerifiedNeighbor ? 'Verified' : 'Unverified'})
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {/* New Share / Need CTA */}

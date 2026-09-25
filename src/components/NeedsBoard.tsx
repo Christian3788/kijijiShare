@@ -30,6 +30,7 @@ interface NeedsBoardProps {
   setRadiusKm: (radius: number) => void;
   savedListings: string[];
   onToggleSaveListing: (listingId: string) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function NeedsBoard({
@@ -42,6 +43,7 @@ export function NeedsBoard({
   setRadiusKm,
   savedListings,
   onToggleSaveListing,
+  onViewProfile,
 }: NeedsBoardProps) {
   const [filterType, setFilterType] = useState<'ALL' | 'NEED_ITEM' | 'NEED_HELP' | 'URGENT'>('ALL');
   const [searchQuery, setSearchQuery] = useState('');
@@ -254,9 +256,19 @@ export function NeedsBoard({
 
                   {/* Neighbor info */}
                   <div className="mt-3 pt-3 border-t border-stone-100 flex items-center justify-between text-xs text-stone-500">
-                    <div>
+                    <div className="flex items-center gap-1">
                       <span>Requested by: </span>
-                      <strong className="text-stone-800 font-medium">{need.giverName} {isSeeker && '(You)'}</strong>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewProfile?.(need.giverId);
+                        }}
+                        title={`View ${need.giverName}'s profile & vouches`}
+                        className="text-stone-800 font-semibold hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <span>{need.giverName} {isSeeker && '(You)'}</span>
+                      </button>
                       <span className="text-[11px] font-mono text-emerald-800 ml-1">· Karma {need.giverKarma}</span>
                     </div>
                     <div className="text-[11px] text-stone-400">

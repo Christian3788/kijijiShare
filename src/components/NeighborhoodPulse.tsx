@@ -33,6 +33,7 @@ interface NeighborhoodPulseProps {
   setSelectedCategory: (category: string) => void;
   savedListings: string[];
   onToggleSaveListing: (listingId: string) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function NeighborhoodPulse({
@@ -47,6 +48,7 @@ export function NeighborhoodPulse({
   setSelectedCategory,
   savedListings,
   onToggleSaveListing,
+  onViewProfile,
 }: NeighborhoodPulseProps) {
   const [searchQuery, setSearchQuery] = useState('');
 
@@ -344,9 +346,19 @@ export function NeighborhoodPulse({
 
                     <div className="flex items-center justify-between mt-1 text-[11px] text-stone-500">
                       <span>Shared by:</span>
-                      <span className="font-medium text-stone-800">
-                        {item.giverName} {isGiver && '(You)'} · Karma {item.giverKarma}
-                      </span>
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onViewProfile?.(item.giverId);
+                        }}
+                        title={`View ${item.giverName}'s profile & vouches`}
+                        className="font-medium text-stone-800 hover:text-emerald-800 hover:underline flex items-center gap-1 cursor-pointer transition-colors"
+                      >
+                        <span>{item.giverName} {isGiver && '(You)'}</span>
+                        <span className="text-stone-400">·</span>
+                        <span className="text-emerald-700 font-mono font-semibold">{item.giverKarma} Karma</span>
+                      </button>
                     </div>
                   </div>
                 </div>

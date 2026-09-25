@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { User, Listing, ClaimRequest, NeedOffer, ListingCategory, KarmaEvent } from './types';
+import { User, Listing, ClaimRequest, NeedOffer, ListingCategory, KarmaEvent, Vouch } from './types';
 import { SEED_USERS, INITIAL_LISTINGS } from './data/seedData';
 import { TopNav } from './components/TopNav';
 import { NeighborhoodPulse } from './components/NeighborhoodPulse';
@@ -22,6 +22,7 @@ import { LiveVoiceStudio } from './components/LiveVoiceStudio';
 import { NearbyAlertToast } from './components/NearbyAlertToast';
 import { NearbyAlertCenter } from './components/NearbyAlertCenter';
 import { MySavedListings } from './components/MySavedListings';
+import { UserProfileModal } from './components/UserProfileModal';
 
 // 1km Alert System & Geospatial calculations
 import { 
@@ -193,6 +194,10 @@ export default function App() {
   const [isVeoGeneratorOpen, setIsVeoGeneratorOpen] = useState<boolean>(false);
   const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState<boolean>(false);
 
+  // User Profile Modal State
+  const [viewingProfileUser, setViewingProfileUser] = useState<User | null>(null);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState<boolean>(false);
+
   const [karmaModalData, setKarmaModalData] = useState<{
     targetUser: { id: string; name: string; avatar: string; role: 'GIVER' | 'RECIPIENT' | 'HELPER' | 'SEEKER' };
     transactionTitle: string;
@@ -203,6 +208,112 @@ export default function App() {
   const showToast = (msg: string) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3500);
+  };
+
+  const handleOpenUserProfile = (userOrId: User | string) => {
+    if (typeof userOrId === 'string') {
+      const found = users.find(u => u.id === userOrId);
+      if (found) {
+        setViewingProfileUser(found);
+      } else {
+        const listing = listings.find(l => l.giverId === userOrId);
+        if (listing) {
+          const synthUser: User = {
+            id: listing.giverId,
+            name: listing.giverName,
+            avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80',
+            neighborhood: listing.giverNeighborhood,
+            homeCoordinates: listing.fuzzedLocation,
+            karmaScore: listing.giverKarma,
+            vouchCount: 0,
+            giftsGivenCount: 1,
+            giftsReceivedCount: 0,
+            needsFulfilledCount: 0,
+            activeClaimsCount: 0,
+            rolling7DayClaimsCount: 0,
+            isVerifiedNeighbor: false,
+            trustTier: listing.giverTrustTier || 'NEWCOMER',
+            vouches: [],
+          };
+          setUsers(prev => [...prev, synthUser]);
+          setViewingProfileUser(synthUser);
+        }
+      }
+    } else {
+      setViewingProfileUser(userOrId);
+    }
+    setIsProfileModalOpen(true);
+  };
+
+  const handleVouchForNeighbor = (
+    targetUserId: string,
+    confirmationNote: string,
+    badge: Vouch['badge'] = 'Reliable Neighbor'
+  ) => {
+    const target = users.find(u => u.id === targetUserId);
+    if (!target) return;
+
+    const newVouch: Vouch = {
+      id: `vouch_${Date.now()}`,
+      voucherId: currentUser.id,
+      voucherName: currentUser.name,
+      voucherNeighborhood: currentUser.neighborhood,
+      recipientId: targetUserId,
+      badge: badge,
+      comment: confirmationNote,
+      createdAt: new Date().toISOString(),
+    };
+
+    const newVouchCount = target.vouchCount + 1;
+    const newKarma = calculateKarma(
+      newVouchCount,
+      target.giftsGivenCount,
+      target.needsFulfilledCount,
+      target.giftsReceivedCount,
+      0
+    );
+    const newTrustTier = deriveTrustTier(newKarma);
+    const updatedVouches = [newVouch, ...(target.vouches || [])];
+
+    const newKarmaEvent: KarmaEvent = {
+      id: `ke_${Date.now()}`,
+      userId: targetUserId,
+      type: 'PEER_VOUCH',
+      points: 5,
+      description: `Peer Vouch from ${currentUser.name}: "${confirmationNote}"`,
+      partnerId: currentUser.id,
+      partnerName: currentUser.name,
+      badgeAwarded: badge,
+      timestamp: new Date().toISOString(),
+    };
+
+    const updatedTargetUser: User = {
+      ...target,
+      vouchCount: newVouchCount,
+      isVerifiedNeighbor: true,
+      karmaScore: newKarma,
+      trustTier: newTrustTier,
+      vouches: updatedVouches,
+      karmaHistory: [newKarmaEvent, ...(target.karmaHistory || [])],
+    };
+
+    setUsers(prev => prev.map(u => u.id === targetUserId ? updatedTargetUser : u));
+    setViewingProfileUser(updatedTargetUser);
+
+    // Sync to Firestore if authenticated
+    if (firebaseUser || auth.currentUser) {
+      updateDoc(doc(db, 'users', targetUserId), {
+        vouchCount: newVouchCount,
+        isVerifiedNeighbor: true,
+        karmaScore: newKarma,
+        trustTier: newTrustTier,
+        vouches: updatedVouches,
+      }).catch(err => {
+        console.warn('Firestore user vouch update note:', err);
+      });
+    }
+
+    showToast(`Vouched for ${target.name}! Verified badge added to their profile.`);
   };
 
   // Listen to Firebase Auth
@@ -823,6 +934,7 @@ export default function App() {
         pendingSyncCount={pendingSyncCount}
         openNeedsCount={openNeedsCount}
         savedCount={savedListings.length}
+        onOpenUserProfile={(u) => handleOpenUserProfile(u)}
         unreadNotificationCount={notifications.filter(n => !n.read).length}
         onOpenAlertCenter={() => setIsAlertCenterOpen(true)}
         firebaseUser={firebaseUser}
@@ -850,6 +962,7 @@ export default function App() {
             setSelectedCategory={setSelectedCategory}
             savedListings={savedListings}
             onToggleSaveListing={handleToggleSaveListing}
+            onViewProfile={(userId) => handleOpenUserProfile(userId)}
           />
         )}
 
@@ -868,6 +981,7 @@ export default function App() {
             setRadiusKm={setRadiusKm}
             savedListings={savedListings}
             onToggleSaveListing={handleToggleSaveListing}
+            onViewProfile={(userId) => handleOpenUserProfile(userId)}
           />
         )}
 
@@ -885,6 +999,7 @@ export default function App() {
             onOpenOfferHelpModal={(need) => setSelectedNeedForOffer(need)}
             onOpenReviewOffersDrawer={(need) => setSelectedNeedForReview(need)}
             onNavigateToTab={(tab) => setActiveTab(tab)}
+            onViewProfile={(userId) => handleOpenUserProfile(userId)}
           />
         )}
 
@@ -934,6 +1049,7 @@ export default function App() {
           listing={selectedListingForDrawer}
           currentUser={currentUser}
           onSelectRecipient={handleSelectRecipient}
+          onViewProfile={(userId) => handleOpenUserProfile(userId)}
         />
       )}
 
@@ -975,6 +1091,7 @@ export default function App() {
           need={selectedNeedForReview}
           currentUser={currentUser}
           onAcceptHelper={handleAcceptHelper}
+          onViewProfile={(userId) => handleOpenUserProfile(userId)}
         />
       )}
 
@@ -1069,6 +1186,18 @@ export default function App() {
         pushPermission={pushPermission}
         onRequestPushPermission={handleRequestPushPermission}
         currentNeighborhood={currentUser.neighborhood}
+      />
+
+      {/* Neighbor User Profile & Vouch Modal */}
+      <UserProfileModal
+        isOpen={isProfileModalOpen}
+        onClose={() => {
+          setIsProfileModalOpen(false);
+          setViewingProfileUser(null);
+        }}
+        user={viewingProfileUser}
+        currentUser={currentUser}
+        onVouchForNeighbor={handleVouchForNeighbor}
       />
 
       {/* Minimalist Footer */}

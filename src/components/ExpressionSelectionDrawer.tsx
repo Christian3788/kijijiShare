@@ -18,6 +18,7 @@ interface ExpressionSelectionDrawerProps {
   listing: Listing;
   currentUser: User;
   onSelectRecipient: (listingId: string, claimRequest: ClaimRequest) => void;
+  onViewProfile?: (userId: string) => void;
 }
 
 export function ExpressionSelectionDrawer({
@@ -26,6 +27,7 @@ export function ExpressionSelectionDrawer({
   listing,
   currentUser,
   onSelectRecipient,
+  onViewProfile,
 }: ExpressionSelectionDrawerProps) {
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [confirmingSelection, setConfirmingSelection] = useState(false);
@@ -112,9 +114,17 @@ export function ExpressionSelectionDrawer({
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-display font-bold text-sm text-stone-900">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              onViewProfile?.(req.requesterId);
+                            }}
+                            title={`View ${req.requesterName}'s profile & vouches`}
+                            className="font-display font-bold text-sm text-stone-900 hover:text-emerald-800 hover:underline cursor-pointer text-left"
+                          >
                             {req.requesterName}
-                          </span>
+                          </button>
                           <span className="text-[11px] text-stone-500 flex items-center gap-1 font-mono">
                             <MapPin className="w-3 h-3 text-stone-400" />
                             {formatDistance(req.requesterDistanceMeters)}
