@@ -1,0 +1,7 @@
+{
+  "name": "KijijiShare - Hyperlocal Gift Economy",
+  "description": "Production-grade offline-resilient hyperlocal gift economy and mutual aid platform architecture and interactive application.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
+
