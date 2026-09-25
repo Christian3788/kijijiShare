@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { User, Listing, ClaimRequest, NeedOffer, ListingCategory, KarmaEvent } from './types';
 import { SEED_USERS, INITIAL_LISTINGS } from './data/seedData';
 import { TopNav } from './components/TopNav';
@@ -15,6 +15,16 @@ import { OfferHelpModal } from './components/OfferHelpModal';
 import { ReviewOffersDrawer } from './components/ReviewOffersDrawer';
 import { KarmaModal } from './components/KarmaModal';
 import { KarmaLedgerModal } from './components/KarmaLedgerModal';
+import { GeminiChatbot } from './components/GeminiChatbot';
+import { MapsGroundingFinder } from './components/MapsGroundingFinder';
+import { VeoVideoGenerator } from './components/VeoVideoGenerator';
+import { LiveVoiceStudio } from './components/LiveVoiceStudio';
+
+// Firebase Auth & Firestore
+import { auth, db, loginWithGoogle, logoutUser, handleFirestoreError, OperationType } from './firebase/config';
+import { onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { doc, setDoc, updateDoc, collection, onSnapshot } from 'firebase/firestore';
+
 import { getOfflineDrafts, saveOfflineDraft, removeOfflineDraft } from './services/offlineSync';
 import { calculateKarma, deriveTrustTier } from './services/antiHoardingEngine';
 import { CheckCircle2 } from 'lucide-react';
@@ -27,12 +37,15 @@ export default function App() {
   const [radiusKm, setRadiusKm] = useState<number>(3);
   const [selectedCategory, setSelectedCategory] = useState<string>('ALL');
   
+  // Firebase Auth State
+  const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
+
   // Offline simulation state
   const [isOffline, setIsOffline] = useState<boolean>(false);
   const [pendingSyncCount, setPendingSyncCount] = useState<number>(0);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
-  // Modal active states
+  // Modals state
   const [selectedListingForDrawer, setSelectedListingForDrawer] = useState<Listing | null>(null);
   const [selectedListingForPickup, setSelectedListingForPickup] = useState<Listing | null>(null);
   const [selectedListingForPitch, setSelectedListingForPitch] = useState<Listing | null>(null);
@@ -42,8 +55,13 @@ export default function App() {
   const [isNewListingModalOpen, setIsNewListingModalOpen] = useState<boolean>(false);
   const [newListingDefaultCategory, setNewListingDefaultCategory] = useState<ListingCategory>('GIFT');
   
-  // Karma Modals
+  // Karma & AI Tools Modals
   const [isKarmaLedgerOpen, setIsKarmaLedgerOpen] = useState<boolean>(false);
+  const [isChatbotOpen, setIsChatbotOpen] = useState<boolean>(false);
+  const [isMapsFinderOpen, setIsMapsFinderOpen] = useState<boolean>(false);
+  const [isVeoGeneratorOpen, setIsVeoGeneratorOpen] = useState<boolean>(false);
+  const [isLiveVoiceOpen, setIsLiveVoiceOpen] = useState<boolean>(false);
+
   const [karmaModalData, setKarmaModalData] = useState<{
     targetUser: { id: string; name: string; avatar: string; role: 'GIVER' | 'RECIPIENT' | 'HELPER' | 'SEEKER' };
     transactionTitle: string;
@@ -56,18 +74,91 @@ export default function App() {
     setTimeout(() => setToastMessage(null), 3500);
   };
 
-  // Open needs count
+  // Listen to Firebase Auth
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setFirebaseUser(user);
+      if (user) {
+        // Sync or register user in local state & Firestore
+        const existingIdx = users.findIndex(u => u.id === user.uid);
+        if (existingIdx >= 0) {
+          setCurrentUserId(user.uid);
+        } else {
+          const newAuthUser: User = {
+            id: user.uid,
+            name: user.displayName || 'Google Neighbor',
+            avatar: user.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=160&q=80',
+            neighborhood: 'Harbord Village & Elmwood',
+            homeCoordinates: { lat: 43.6652, lng: -79.4045 },
+            karmaScore: 65,
+            vouchCount: 1,
+            giftsGivenCount: 0,
+            giftsReceivedCount: 0,
+            needsFulfilledCount: 0,
+            activeClaimsCount: 0,
+            rolling7DayClaimsCount: 0,
+            isVerifiedNeighbor: true,
+            trustTier: 'NEWCOMER',
+            vouches: [],
+            karmaHistory: [],
+          };
+          setUsers(prev => [newAuthUser, ...prev]);
+          setCurrentUserId(user.uid);
+
+          // Save to Firestore
+          setDoc(doc(db, 'users', user.uid), {
+            id: user.uid,
+            email: user.email || '',
+            fullName: user.displayName || 'Google Neighbor',
+            avatarUrl: user.photoURL || '',
+            neighborhood: 'Harbord Village & Elmwood',
+            karmaScore: 65,
+            trustTier: 'NEWCOMER',
+            vouchCount: 1,
+            giftsGivenCount: 0,
+            giftsReceivedCount: 0,
+            needsFulfilledCount: 0,
+            createdAt: new Date().toISOString(),
+          }).catch(err => {
+            console.warn('Firestore user doc sync notice:', err);
+          });
+        }
+      }
+    });
+    return () => unsubscribe();
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      const user = await loginWithGoogle();
+      if (user) {
+        showToast(`Signed in as ${user.displayName || user.email}! Connected to Firebase.`);
+      }
+    } catch (err: any) {
+      showToast(`Sign in error: ${err.message}`);
+    }
+  };
+
+  const handleGoogleSignOut = async () => {
+    try {
+      await logoutUser();
+      setCurrentUserId('user_elena');
+      showToast('Signed out of Firebase.');
+    } catch (err: any) {
+      showToast(`Sign out error: ${err.message}`);
+    }
+  };
+
   const openNeedsCount = listings.filter(
     l => (l.category === 'NEED_ITEM' || l.category === 'NEED_HELP') && l.status === 'OFFERED'
   ).length;
 
-  // Toggle offline simulator
   const handleToggleOffline = () => {
     if (isOffline) {
       setIsOffline(false);
       const drafts = getOfflineDrafts();
       if (drafts.length > 0) {
-        showToast(`Reconnected! Synced ${drafts.length} offline draft(s) with PostGIS cluster.`);
+        showToast(`Reconnected! Synced ${drafts.length} offline draft(s) with PostGIS & Firestore.`);
         drafts.forEach(d => removeOfflineDraft(d.id));
         setPendingSyncCount(0);
       } else {
@@ -79,7 +170,7 @@ export default function App() {
     }
   };
 
-  // 1. Submit pitch (Express Interest in a gift/tool)
+  // 1. Submit pitch
   const handleSubmitPitch = (listingId: string, pitch: string) => {
     setListings(prev => prev.map(l => {
       if (l.id === listingId) {
@@ -96,9 +187,19 @@ export default function App() {
           status: 'PENDING',
           createdAt: new Date().toISOString(),
         };
+        const updatedStatus = l.status === 'OFFERED' ? 'INTEREST_EXPRESSED' : l.status;
+        
+        // Sync to Firestore if authenticated
+        if (firebaseUser) {
+          updateDoc(doc(db, 'listings', listingId), {
+            status: updatedStatus,
+            claimRequests: [newReq, ...l.claimRequests],
+          }).catch(e => console.warn('Firestore update notice:', e));
+        }
+
         return {
           ...l,
-          status: l.status === 'OFFERED' ? 'INTEREST_EXPRESSED' : l.status,
+          status: updatedStatus,
           claimRequests: [newReq, ...l.claimRequests],
         };
       }
@@ -119,12 +220,26 @@ export default function App() {
     showToast('Your neighborly note was sent! Giver will thoughtfully review.');
   };
 
-  // 2. Select Recipient (Giver matching)
+  // 2. Select Recipient
   const handleSelectRecipient = (listingId: string, claimRequest: ClaimRequest) => {
     const handshakePin = `${Math.floor(100 + Math.random() * 900)}-${Math.floor(100 + Math.random() * 900)}`;
 
     setListings(prev => prev.map(l => {
       if (l.id === listingId) {
+        const updatedRequests = l.claimRequests.map(r => 
+          r.id === claimRequest.id ? { ...r, status: 'ACCEPTED' as const } : { ...r, status: 'DECLINED' as const }
+        );
+
+        if (firebaseUser) {
+          updateDoc(doc(db, 'listings', listingId), {
+            status: 'GIVER_SELECTED',
+            selectedRecipientId: claimRequest.requesterId,
+            selectedRecipientName: claimRequest.requesterName,
+            handshakePin,
+            claimRequests: updatedRequests,
+          }).catch(e => console.warn('Firestore update notice:', e));
+        }
+
         return {
           ...l,
           status: 'GIVER_SELECTED',
@@ -132,9 +247,7 @@ export default function App() {
           selectedRecipientName: claimRequest.requesterName,
           scheduledPickupTime: 'Today at 5:30 PM',
           handshakePin,
-          claimRequests: l.claimRequests.map(r => 
-            r.id === claimRequest.id ? { ...r, status: 'ACCEPTED' } : { ...r, status: 'DECLINED' }
-          ),
+          claimRequests: updatedRequests,
         };
       }
       return l;
@@ -143,7 +256,7 @@ export default function App() {
     showToast(`Selected ${claimRequest.requesterName}! Doorstep pickup PIN generated.`);
   };
 
-  // 3. Confirm Handshake (One-time PIN completion)
+  // 3. Confirm Handshake
   const handleConfirmHandshake = (listingId: string, pin: string, vouchBadge?: string) => {
     let targetGiverId = '';
     let targetRecipientId = '';
@@ -154,6 +267,13 @@ export default function App() {
         targetGiverId = l.giverId;
         targetRecipientId = l.selectedRecipientId || '';
         itemTitle = l.title;
+
+        if (firebaseUser) {
+          updateDoc(doc(db, 'listings', listingId), {
+            status: 'FULFILLED',
+          }).catch(e => console.warn('Firestore update notice:', e));
+        }
+
         return { ...l, status: 'FULFILLED' };
       }
       return l;
@@ -190,7 +310,6 @@ export default function App() {
 
     showToast('Dual Handshake Verified! Exchange completed.');
 
-    // Prompt Karma Modal for current user to award karma to their exchange partner
     const otherUserId = currentUser.id === targetGiverId ? targetRecipientId : targetGiverId;
     const otherUser = users.find(u => u.id === otherUserId);
     if (otherUser) {
@@ -228,9 +347,15 @@ export default function App() {
 
     setListings(prev => prev.map(l => {
       if (l.id === needId) {
+        const updatedOffers = [newOffer, ...(l.needOffers || [])];
+        if (firebaseUser) {
+          updateDoc(doc(db, 'listings', needId), {
+            needOffers: updatedOffers,
+          }).catch(e => console.warn('Firestore update notice:', e));
+        }
         return {
           ...l,
-          needOffers: [newOffer, ...(l.needOffers || [])],
+          needOffers: updatedOffers,
         };
       }
       return l;
@@ -242,24 +367,30 @@ export default function App() {
   // 6. Accept helper on a Need
   const handleAcceptHelper = (needId: string, offer: NeedOffer) => {
     let needTitle = '';
-    let seekerName = '';
 
     setListings(prev => prev.map(l => {
       if (l.id === needId) {
         needTitle = l.title;
-        seekerName = l.giverName;
+        const updatedOffers = (l.needOffers || []).map(o => 
+          o.id === offer.id ? { ...o, status: 'ACCEPTED' as const } : { ...o, status: 'DECLINED' as const }
+        );
+
+        if (firebaseUser) {
+          updateDoc(doc(db, 'listings', needId), {
+            status: 'FULFILLED',
+            needOffers: updatedOffers,
+          }).catch(e => console.warn('Firestore update notice:', e));
+        }
+
         return {
           ...l,
           status: 'FULFILLED',
-          needOffers: (l.needOffers || []).map(o => 
-            o.id === offer.id ? { ...o, status: 'ACCEPTED' } : { ...o, status: 'DECLINED' }
-          ),
+          needOffers: updatedOffers,
         };
       }
       return l;
     }));
 
-    // Update helper's completed needs count
     setUsers(prev => prev.map(u => {
       if (u.id === offer.helperId) {
         const updatedFulfilled = u.needsFulfilledCount + 1;
@@ -276,7 +407,6 @@ export default function App() {
 
     showToast(`Accepted ${offer.helperName}'s offer! Mutual aid fulfilled.`);
 
-    // Prompt Seeker to award Karma to the helper
     const helperUser = users.find(u => u.id === offer.helperId);
     if (helperUser) {
       setKarmaModalData({
@@ -312,6 +442,20 @@ export default function App() {
           timestamp: new Date().toISOString(),
         };
 
+        // Record to Firestore
+        if (firebaseUser) {
+          setDoc(doc(db, 'karma_transactions', newEvent.id), {
+            id: newEvent.id,
+            userId: u.id,
+            awardedBy: currentUser.id,
+            awardedByName: currentUser.name,
+            points,
+            badge,
+            note,
+            createdAt: newEvent.timestamp,
+          }).catch(e => console.warn('Firestore karma doc notice:', e));
+        }
+
         return {
           ...u,
           karmaScore: newScore,
@@ -336,6 +480,33 @@ export default function App() {
       showToast('Saved to Offline IndexedDB. Will sync when reconnected.');
     } else {
       setListings(prev => [newListing, ...prev]);
+      
+      // Persist to Firestore
+      if (firebaseUser) {
+        setDoc(doc(db, 'listings', newListing.id), {
+          id: newListing.id,
+          giverId: currentUser.id,
+          giverName: currentUser.name,
+          giverNeighborhood: currentUser.neighborhood,
+          giverKarma: currentUser.karmaScore,
+          title: newListing.title,
+          description: newListing.description,
+          category: newListing.category,
+          status: newListing.status,
+          lat: newListing.fuzzedLocation.lat,
+          lng: newListing.fuzzedLocation.lng,
+          pickupLocationDescription: newListing.pickupLocationDescription || '',
+          estimatedDurationMinutes: newListing.estimatedDurationMinutes || 0,
+          relevantExperience: newListing.relevantExperience || '',
+          toolsRequired: newListing.toolsRequired || '',
+          locationType: newListing.locationType || 'IN_PERSON_DOORSTEP',
+          urgencyLevel: newListing.urgencyLevel || 'NORMAL',
+          createdAt: newListing.createdAt,
+        }).catch(err => {
+          console.warn('Firestore listing sync notice:', err);
+        });
+      }
+
       if (newListing.category === 'NEED_ITEM' || newListing.category === 'NEED_HELP') {
         showToast('Mutual aid request posted to the Needs Board!');
         setActiveTab('needs');
@@ -371,6 +542,13 @@ export default function App() {
         onOpenKarmaLedger={() => setIsKarmaLedgerOpen(true)}
         pendingSyncCount={pendingSyncCount}
         openNeedsCount={openNeedsCount}
+        firebaseUser={firebaseUser}
+        onGoogleSignIn={handleGoogleSignIn}
+        onGoogleSignOut={handleGoogleSignOut}
+        onOpenChatbot={() => setIsChatbotOpen(true)}
+        onOpenMapsGrounding={() => setIsMapsFinderOpen(true)}
+        onOpenVeoGenerator={() => setIsVeoGeneratorOpen(true)}
+        onOpenLiveVoice={() => setIsLiveVoiceOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -512,6 +690,37 @@ export default function App() {
         />
       )}
 
+      {isChatbotOpen && (
+        <GeminiChatbot
+          isOpen={true}
+          onClose={() => setIsChatbotOpen(false)}
+          neighborhoodName={currentUser.neighborhood}
+        />
+      )}
+
+      {isMapsFinderOpen && (
+        <MapsGroundingFinder
+          isOpen={true}
+          onClose={() => setIsMapsFinderOpen(false)}
+          neighborhood={currentUser.neighborhood}
+        />
+      )}
+
+      {isVeoGeneratorOpen && (
+        <VeoVideoGenerator
+          isOpen={true}
+          onClose={() => setIsVeoGeneratorOpen(false)}
+        />
+      )}
+
+      {isLiveVoiceOpen && (
+        <LiveVoiceStudio
+          isOpen={true}
+          onClose={() => setIsLiveVoiceOpen(false)}
+          neighborhood={currentUser.neighborhood}
+        />
+      )}
+
       {isNewListingModalOpen && (
         <NewListingModal
           isOpen={true}
@@ -529,10 +738,10 @@ export default function App() {
           <div className="flex items-center gap-2">
             <span className="font-display font-bold text-stone-800">KijijiShare</span>
             <span aria-hidden="true">·</span>
-            <span>Needs Board · Skill Exchanges · Community Karma Trust Mesh</span>
+            <span>Firebase Firestore Auth · Gemini Live · Google Maps Grounding · Veo 3</span>
           </div>
           <div className="text-[11px] text-stone-400">
-            PostGIS ST_DWithin Indexing · 300m Privacy Obfuscation · Zero-Barter Mutual Aid
+            Toroidal 1-5km Mesh · PostGIS ST_DWithin · Offline Resilience · Zero-Barter Mutual Aid
           </div>
         </div>
       </footer>

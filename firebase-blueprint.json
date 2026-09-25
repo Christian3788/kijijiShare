@@ -1,0 +1,83 @@
+{
+  "entities": {
+    "User": {
+      "title": "User",
+      "description": "Registered neighbor account with karma and trust metrics",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique user UID matching auth UID" },
+        "email": { "type": "string", "format": "email", "description": "User email address" },
+        "fullName": { "type": "string", "maxLength": 120, "description": "Full display name" },
+        "avatarUrl": { "type": "string", "description": "Avatar photo URL" },
+        "neighborhood": { "type": "string", "maxLength": 100, "description": "Verified neighborhood" },
+        "karmaScore": { "type": "integer", "description": "Calculated karma between 0 and 100" },
+        "trustTier": { "type": "string", "enum": ["NEWCOMER", "TRUSTED_NEIGHBOR", "PILLAR_OF_COMMUNITY", "PROBATION"], "description": "Trust tier" },
+        "vouchCount": { "type": "integer", "description": "Total vouches received" },
+        "giftsGivenCount": { "type": "integer", "description": "Total surplus items given" },
+        "giftsReceivedCount": { "type": "integer", "description": "Total items received" },
+        "needsFulfilledCount": { "type": "integer", "description": "Total mutual aid needs met" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Account registration timestamp" }
+      },
+      "required": ["id", "fullName", "neighborhood", "karmaScore", "trustTier"]
+    },
+    "Listing": {
+      "title": "Listing",
+      "description": "Surplus item, tool loan, skill exchange, or mutual aid need",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique listing document ID" },
+        "giverId": { "type": "string", "description": "Author UID" },
+        "giverName": { "type": "string", "maxLength": 120, "description": "Author display name" },
+        "giverNeighborhood": { "type": "string", "maxLength": 100, "description": "Author neighborhood" },
+        "giverKarma": { "type": "integer", "description": "Author karma score at creation" },
+        "title": { "type": "string", "maxLength": 160, "description": "Title of the listing or ask" },
+        "description": { "type": "string", "maxLength": 2000, "description": "Detailed description" },
+        "category": { "type": "string", "enum": ["GIFT", "LEND", "SKILL", "SERVICE", "NEED_ITEM", "NEED_HELP"], "description": "Listing category" },
+        "status": { "type": "string", "enum": ["OFFERED", "INTEREST_EXPRESSED", "GIVER_SELECTED", "PICKUP_SCHEDULED", "FULFILLED", "CLOSED"], "description": "Workflow status" },
+        "lat": { "type": "number", "description": "Fuzzed latitude" },
+        "lng": { "type": "number", "description": "Fuzzed longitude" },
+        "pickupLocationDescription": { "type": "string", "maxLength": 500, "description": "Doorstep pickup notes" },
+        "handshakePin": { "type": "string", "maxLength": 10, "description": "Single-use 6-digit confirmation PIN" },
+        "selectedRecipientId": { "type": "string", "description": "Chosen recipient UID" },
+        "selectedRecipientName": { "type": "string", "description": "Chosen recipient name" },
+        "estimatedDurationMinutes": { "type": "integer", "description": "Estimated duration for skills/services" },
+        "relevantExperience": { "type": "string", "maxLength": 300, "description": "Experience background" },
+        "toolsRequired": { "type": "string", "maxLength": 300, "description": "Tools required" },
+        "locationType": { "type": "string", "enum": ["IN_PERSON_DOORSTEP", "IN_PERSON_PUBLIC", "REMOTE_VIRTUAL"], "description": "Location format" },
+        "urgencyLevel": { "type": "string", "enum": ["LOW", "NORMAL", "URGENT"], "description": "Urgency level for needs" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Creation timestamp" }
+      },
+      "required": ["giverId", "title", "description", "category", "status", "createdAt"]
+    },
+    "KarmaTransaction": {
+      "title": "KarmaTransaction",
+      "description": "Audit record of karma points and peer vouches awarded",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Transaction ID" },
+        "userId": { "type": "string", "description": "Recipient of karma" },
+        "awardedBy": { "type": "string", "description": "Donor/seeker UID" },
+        "awardedByName": { "type": "string", "description": "Donor/seeker name" },
+        "points": { "type": "integer", "description": "Points value" },
+        "badge": { "type": "string", "description": "Vouch endorsement badge" },
+        "note": { "type": "string", "maxLength": 500, "description": "Gratitude note" },
+        "createdAt": { "type": "string", "format": "date-time", "description": "Timestamp" }
+      },
+      "required": ["userId", "awardedBy", "points", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/User" },
+      "description": "User profile with community karma score and verified tier"
+    },
+    "/listings/{listingId}": {
+      "schema": { "$ref": "#/entities/Listing" },
+      "description": "Public and neighborhood listings (surplus, skills, needs)"
+    },
+    "/karma_transactions/{transactionId}": {
+      "schema": { "$ref": "#/entities/KarmaTransaction" },
+      "description": "Immutable ledger of karma points and peer vouches"
+    }
+  }
+}

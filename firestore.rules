@@ -1,0 +1,79 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Default-deny safety net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    // --- USERS COLLECTION ---
+    match /users/{userId} {
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
+      allow create: if isOwner(userId)
+        && incoming().id == userId
+        && incoming().fullName is string && incoming().fullName.size() <= 120
+        && incoming().neighborhood is string && incoming().neighborhood.size() <= 100
+        && incoming().karmaScore is int
+        && incoming().trustTier in ['NEWCOMER', 'TRUSTED_NEIGHBOR', 'PILLAR_OF_COMMUNITY', 'PROBATION'];
+      allow update: if isSignedIn() && (
+        isOwner(userId) ||
+        // Allow updating karma & counts upon exchange completion
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'karmaScore', 'trustTier', 'vouchCount', 'giftsGivenCount', 'giftsReceivedCount', 'needsFulfilledCount', 'activeClaimsCount', 'rolling7DayClaimsCount'
+        ])
+      );
+    }
+
+    // --- LISTINGS COLLECTION (GIFTS, SKILLS, NEEDS) ---
+    match /listings/{listingId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && incoming().giverId == request.auth.uid
+        && incoming().title is string && incoming().title.size() <= 160
+        && incoming().description is string && incoming().description.size() <= 2000
+        && incoming().category in ['GIFT', 'LEND', 'SKILL', 'SERVICE', 'NEED_ITEM', 'NEED_HELP']
+        && incoming().status in ['OFFERED', 'INTEREST_EXPRESSED', 'GIVER_SELECTED', 'PICKUP_SCHEDULED', 'FULFILLED', 'CLOSED'];
+      allow update: if isSignedIn() && (
+        // Giver update
+        existing().giverId == request.auth.uid ||
+        // Claim requests, offers, or status updates by matching neighbor
+        incoming().diff(existing()).affectedKeys().hasOnly([
+          'status', 'claimRequests', 'needOffers', 'selectedRecipientId', 'selectedRecipientName', 'scheduledPickupTime', 'handshakePin'
+        ])
+      );
+      allow delete: if isSignedIn() && existing().giverId == request.auth.uid;
+    }
+
+    // --- KARMA TRANSACTIONS AUDIT LEDGER ---
+    match /karma_transactions/{transactionId} {
+      allow get, list: if isSignedIn();
+      allow create: if isSignedIn()
+        && incoming().awardedBy == request.auth.uid
+        && incoming().points is int
+        && incoming().userId is string;
+      allow update, delete: if false; // Immutable ledger
+    }
+  }
+}
