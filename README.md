@@ -20,14 +20,17 @@
   - [4. Hyperlocal 1km Real-Time Alert System](#4-hyperlocal-1km-real-time-alert-system)
   - [5. Mutual Aid Needs Board](#5-mutual-aid-needs-board)
   - [6. My Saved Shortlist](#6-my-saved-shortlist)
-  - [7. Offline Mesh Resilience & Safe Doorstep Handshakes](#7-offline-mesh-resilience--safe-doorstep-handshakes)
-  - [8. Gemini & Veo 3 Multi-Modal AI Suite](#8-gemini--veo-3-multi-modal-ai-suite)
+  - [7. Offline Mesh Resilience, Doorstep Handshakes & Calendar Sync](#7-offline-mesh-resilience-doorstep-handshakes--calendar-sync)
+  - [8. Neighborhood Circular Economy & Carbon Ledger](#8-neighborhood-circular-economy--carbon-ledger)
+  - [9. Gemini & Veo 3 Multi-Modal AI Suite](#9-gemini--veo-3-multi-modal-ai-suite)
+  - [10. Resilient Firebase Authentication & Iframe Fallback](#10-resilient-firebase-authentication--iframe-fallback)
 - [Tech Stack](#-tech-stack)
 - [Project Structure](#-project-structure)
 - [Getting Started](#-getting-started)
 - [Environment Variables](#-environment-variables)
 - [Database & Security Rules](#-database--security-rules)
 - [Scripts](#-scripts)
+- [Community Guidelines & Mutual Aid Agreement](#-community-guidelines--mutual-aid-agreement)
 
 ---
 
@@ -38,6 +41,7 @@
 3. **Anti-Hoarding & Fair Distribution**: Mathematical claim caps, rolling 7-day allowances, and cool-off pauses prevent bad-faith hoarding and resale arbitrage.
 4. **Privacy-Preserving Coordinate Fuzzing**: Protects exact household locations with 300m randomized Gaussian offsets until mutual trust and a scheduled pickup are established.
 5. **Decentralized Trust via Peer Vouches**: Replaces predatory ratings with verified neighbor endorsements and transparency ledgers.
+6. **Ecological Impact Tracking**: Quantifies diverted landfill waste, avoided embodied manufacturing carbon, and community dollars saved through circular reuse.
 
 ---
 
@@ -46,7 +50,8 @@
 ### 1. Geospatial Radar & Coordinate Fuzzing
 - **Interactive Geospatial Radar (`GeospatialRadar.tsx`)**: Canvas-rendered radar simulating PostGIS `ST_DWithin` spatial queries, responsive to radius sweeps from 1 km to 5 km.
 - **Dynamic Cluster Aggregation**: Automatically clusters dense items with density callouts and individual drill-down inspectors.
-- **Coordinate Obfuscation**: Public listings expose an obfuscated location ring ($\pm 300\text{ m}$) until the donor thoughtful selects a recipient and confirms pickup.
+- **Coordinate Obfuscation**: Public listings expose an obfuscated location ring ($\pm 300\text{ m}$) until the donor selects a recipient and confirms pickup.
+- **Walking Distance Calculations**: Computes exact walking time (assuming a typical 4.8 km/h pedestrian pace) using the Haversine formula.
 
 ### 2. Algorithmic Anti-Hoarding Engine
 - **Fair-Share Cap Enforcement (`antiHoardingEngine.ts`, `AntiHoardingLab.tsx`)**:
@@ -83,20 +88,26 @@
   - LocalStorage-backed state survives reloads and offline sessions.
   - Quick sub-filters for *Gifts & Tools*, *Skills & Help*, and *Mutual Aid Needs* with walk-time calculations.
 
-### 7. Offline Mesh Resilience & Safe Doorstep Handshakes
+### 7. Offline Mesh Resilience, Doorstep Handshakes & Calendar Sync
 - **Simulated Offline Mesh Mode**:
   - Allows offline browsing, pitch drafting, and listing generation.
   - Mutations are queued to a pending synchronization queue and synced to Firestore once connection restores.
 - **Pickup Coordinator (`PickupCoordinatorModal.tsx`)**:
   - Doorstep handshake protocol with agreed pickup time windows, porch notes, and mutual completion confirmation.
-  - **Calendar Sync (.ics & Google Calendar)**: Generates one-tap calendar exports and direct Google Calendar links so neither neighbor forgets or flakes.
-  - **Printable Porch Drop Label**: Instant printable pickup tag ("Reserved on KijijiShare - Please Do Not Disturb") for contactless porch bins.
+  - **One-Tap Dual PIN Handshake**: Verifies safe handover using ephemeral nonces, boosting punctuality scores.
+  - **Calendar Sync (.ics & Google Calendar)**: Generates one-tap `.ics` calendar files (Apple Calendar, Outlook) and direct Google Calendar links with pickup details, location notes, and verification PIN.
+  - **Printable Porch Drop Label**: Instant printable pickup tag (*"RESERVED FOR [Neighbor] on KijijiShare — Porch Handshake in Progress"*) with anti-theft notice to prevent curb-snatching.
 
 ### 8. Neighborhood Circular Economy & Carbon Ledger
 - **Eco Impact Dashboard (`CommunityImpactModal.tsx`)**:
-  - Measures total embodied carbon avoided ($CO_2$e), landfill waste diverted (kg), and dollars kept in neighbor pockets.
-  - Category-level breakdown across power tools, childcare equipment, and mutual aid hours.
-  - Interactive **Household Circular Estimator** computing personal annual emissions offset with community pledge rewards.
+  - Accessible via the **"1,485 kg CO₂ Saved"** leaf indicator in the top navigation bar.
+  - **Environmental Dividends**:
+    - **1,485 kg CO₂e Prevented**: Equivalent to 6,240 km of avoided gasoline driving or 68 trees growing for 10 years.
+    - **$4,850+ CAD**: Retail purchasing dollars retained in local neighbor pockets.
+    - **342 kg**: Landfill waste diverted across power tools, baby gear, and seasonal appliances.
+  - **Category Breakdown**: Embodied carbon savings across power tools (43%), nursery gear (28%), home repair (19%), and skill trades (10%).
+  - **Interactive Household Circular Estimator**: An adjustable monthly exchange slider calculating personal annual $CO_2$ and monetary savings.
+  - **Circular Neighbor Pledge**: Neighbors can sign the circular pledge to earn $+5$ Community Karma points and a *Circular Champion* badge.
 
 ### 9. Gemini & Veo 3 Multi-Modal AI Suite
 Integrated through server-side proxy routes in `server.ts` utilizing the official `@google/genai` SDK:
@@ -105,6 +116,13 @@ Integrated through server-side proxy routes in `server.ts` utilizing the officia
 - **Google Maps Grounding Safe Meetup Finder (`MapsGroundingFinder.tsx`)**: Finds well-lit public transit hubs, libraries, and park pavilions for safe exchanges via `gemini-3.5-flash` with Google Maps tool grounding.
 - **Veo 3 Video Generator (`VeoVideoGenerator.tsx`)**: Generates community stories and neighborly showcase clips via `veo-3.1-fast-generate-preview` in 16:9 or 9:16 aspect ratios.
 - **Live Voice Studio (`LiveVoiceStudio.tsx`)**: Conversational spoken aid and listing assistant powered by `gemini-3.8-live`.
+
+### 10. Resilient Firebase Authentication & Iframe Fallback
+- **Cross-Origin & Iframe Hardening (`src/firebase/config.ts`)**:
+  - Solves browser cookie restrictions and `auth/network-request-failed` errors when running embedded in cloud sandboxes or iframes.
+  - Automatically falls back to `signInAnonymously(auth)` if `signInWithPopup` is blocked.
+  - Ensures a genuine Firebase Auth token (`request.auth != null`), allowing Firestore queries and security rules to succeed without unhandled exceptions.
+  - Friendly top navigation badge displaying authenticated Google accounts or guest neighbor badges (`Guest (<uid>)`).
 
 ---
 
@@ -143,7 +161,8 @@ Integrated through server-side proxy routes in `server.ts` utilizing the officia
     ├── services/
     │   ├── antiHoardingEngine.ts # Fairness rules, claim caps, and karma algorithms
     │   ├── geoService.ts         # Haversine distance, walk times, coordinate formatting
-    │   └── nearbyAlertService.ts # 1km notification engine, audio chimes, simulation pool
+    │   ├── nearbyAlertService.ts # 1km notification engine, audio chimes, simulation pool
+    │   └── offlineSync.ts        # Client-side image compression & sync queue
     ├── firebase/
     │   └── config.ts             # Firebase Auth & Firestore client setup and helpers
     └── components/
@@ -152,15 +171,16 @@ Integrated through server-side proxy routes in `server.ts` utilizing the officia
         ├── NeedsBoard.tsx             # Mutual aid requests and volunteer coordination
         ├── MySavedListings.tsx        # Bookmarked shortlist with category filters
         ├── GeospatialRadar.tsx        # Canvas radar map and 1-5km radius inspector
+        ├── CommunityImpactModal.tsx   # Eco impact ledger, carbon savings & circular pledge
         ├── UserProfileModal.tsx       # Profile view, verified badge, and 'Vouch for Neighbor'
         ├── KarmaLedgerModal.tsx       # Community karma ledger and audit history
         ├── KarmaModal.tsx             # Post-transaction karma & badge award modal
-        ├── PickupCoordinatorModal.tsx # Doorstep handshake and pickup scheduler
+        ├── PickupCoordinatorModal.tsx # Doorstep handshake, calendar export (.ics), porch tag
         ├── ExpressionSelectionDrawer.tsx # Giver review drawer for interested seekers
         ├── ReviewOffersDrawer.tsx     # Seeker review drawer for mutual aid helpers
         ├── ExpressInterestModal.tsx   # Seeker pitch submission modal
         ├── OfferHelpModal.tsx         # Volunteer response to mutual aid needs
-        ├── NewListingModal.tsx        # Multi-category listing creation modal
+        ├── NewListingModal.tsx        # Multi-category listing creation with AI Polish & Safety
         ├── AntiHoardingLab.tsx        # Interactive mathematical fairness simulator
         ├── ArchitectureSpec.tsx       # System architecture documentation tab
         ├── NearbyAlertToast.tsx       # Floating 1km proximity alert banner
@@ -247,3 +267,4 @@ Firestore security rules (`firestore.rules`) enforce user role isolation and ant
 2. **Be Punctual**: Arrive on time for agreed porch pickups or notify the giver promptly to preserve karma standing.
 3. **Respect Privacy**: Never share a neighbor's door code, private address, or personal contact info outside the platform.
 4. **Vouch Honestly**: Endorse neighbors whose reliability and care you have directly observed.
+5. **Care for Borrowed Tools**: Clean and return borrowed gear in the condition received so the next neighbor can benefit.
