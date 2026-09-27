@@ -1,5 +1,13 @@
 import { initializeApp } from 'firebase/app';
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { 
+  getAuth, 
+  GoogleAuthProvider, 
+  signInWithPopup, 
+  signInAnonymously,
+  signOut, 
+  onAuthStateChanged, 
+  User as FirebaseUser 
+} from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -59,16 +67,48 @@ async function testFirestoreConnection() {
 }
 testFirestoreConnection();
 
+/**
+ * Signs in with Google popup, with automatic graceful fallback to anonymous guest auth
+ * when third-party cookies or cross-origin iframe security policies block popups
+ * (resolving `auth/network-request-failed` and `auth/popup-blocked`).
+ */
 export async function loginWithGoogle(): Promise<FirebaseUser | null> {
   try {
     const result = await signInWithPopup(auth, googleProvider);
     return result.user;
-  } catch (err) {
-    console.error('Google Sign-in failed:', err);
+  } catch (err: any) {
+    console.warn('Google Sign-in popup encountered error/restriction:', err?.code, err?.message);
+    
+    // Check for iframe / cross-origin / network / popup restriction
+    const isNetworkOrPopupError = 
+      err?.code === 'auth/network-request-failed' ||
+      err?.code === 'auth/popup-blocked' ||
+      err?.code === 'auth/popup-closed-by-user' ||
+      err?.code === 'auth/cancelled-popup-request' ||
+      err?.code === 'auth/unauthorized-domain' ||
+      String(err?.message).includes('network-request-failed') ||
+      String(err?.message).includes('Cross-Origin');
+
+    if (isNetworkOrPopupError) {
+      console.info('Switching to Firebase Anonymous Guest authentication for iframe compatibility...');
+      try {
+        const anonResult = await signInAnonymously(auth);
+        return anonResult.user;
+      } catch (anonErr) {
+        console.error('Anonymous fallback failed:', anonErr);
+        throw err;
+      }
+    }
     throw err;
   }
+}
+
+export async function loginAnonymously(): Promise<FirebaseUser | null> {
+  const result = await signInAnonymously(auth);
+  return result.user;
 }
 
 export async function logoutUser(): Promise<void> {
   await signOut(auth);
 }
+

@@ -16,7 +16,8 @@ import {
   LogOut, 
   ChevronDown,
   Bell,
-  Heart
+  Heart,
+  Leaf
 } from 'lucide-react';
 
 interface TopNavProps {
@@ -29,6 +30,7 @@ interface TopNavProps {
   onToggleOffline: () => void;
   onOpenNewListing: () => void;
   onOpenKarmaLedger: () => void;
+  onOpenImpactDashboard?: () => void;
   pendingSyncCount: number;
   openNeedsCount: number;
   savedCount: number;
@@ -58,6 +60,7 @@ export function TopNav({
   onToggleOffline,
   onOpenNewListing,
   onOpenKarmaLedger,
+  onOpenImpactDashboard,
   pendingSyncCount,
   openNeedsCount,
   savedCount,
@@ -245,6 +248,17 @@ export function TopNav({
             )}
           </div>
 
+          {/* Eco Impact Ledger Button */}
+          <button
+            onClick={onOpenImpactDashboard}
+            title="Click to view Neighborhood Circular Impact & Carbon Ledger"
+            className="hidden md:flex items-center gap-1.5 px-2.5 py-1.5 bg-emerald-50 hover:bg-emerald-100/80 border border-emerald-300 rounded-lg text-xs font-semibold text-emerald-950 transition-colors cursor-pointer"
+          >
+            <Leaf className="w-3.5 h-3.5 text-emerald-700" />
+            <span className="font-mono font-bold">1,485 kg</span>
+            <span className="hidden 2xl:inline text-emerald-800 text-[11px] font-normal">CO₂ Saved</span>
+          </button>
+
           {/* Karma Score Chip */}
           <button
             onClick={onOpenKarmaLedger}
@@ -285,11 +299,11 @@ export function TopNav({
                 />
               ) : (
                 <div className="w-6 h-6 rounded-full bg-emerald-800 text-white text-[10px] font-bold flex items-center justify-center">
-                  {(firebaseUser.displayName || 'G')[0]}
+                  {firebaseUser.isAnonymous ? '★' : ((firebaseUser.displayName || 'G')[0])}
                 </div>
               )}
               <span className="text-xs font-semibold text-stone-800 max-w-[80px] truncate hidden sm:inline">
-                {firebaseUser.displayName?.split(' ')[0]}
+                {firebaseUser.isAnonymous ? `Guest (${firebaseUser.uid.slice(0, 4)})` : (firebaseUser.displayName?.split(' ')[0] || 'User')}
               </span>
               <button
                 onClick={onGoogleSignOut}

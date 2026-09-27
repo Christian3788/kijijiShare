@@ -54,9 +54,48 @@ export function NewListingModal({
   const [locationType, setLocationType] = useState<'IN_PERSON_DOORSTEP' | 'IN_PERSON_PUBLIC' | 'REMOTE_VIRTUAL'>('IN_PERSON_DOORSTEP');
   const [urgencyLevel, setUrgencyLevel] = useState<'LOW' | 'NORMAL' | 'URGENT'>('NORMAL');
 
+  // AI Polish State
+  const [isAiPolishing, setIsAiPolishing] = useState(false);
+  const [aiTip, setAiTip] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   if (!isOpen) return null;
+
+  const handleAiPolishListing = async () => {
+    if (!title.trim()) return;
+    setIsAiPolishing(true);
+    try {
+      const response = await fetch('/api/gemini/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: [
+            {
+              role: 'user',
+              content: `Write a warm, concise, neighborly description for a free community share listing titled "${title}". Category: ${category}. Include:
+1. What the item/offer is in 1 friendly sentence.
+2. What condition it is in and how it can be used by a neighbor.
+3. One practical safety or porch pickup care reminder.
+Keep the entire text under 60 words, in first person as the neighbor.`,
+            },
+          ],
+          model: 'gemini-3.5-flash',
+          neighborhood: currentUser.neighborhood,
+        }),
+      });
+
+      const data = await response.json();
+      if (data.reply) {
+        setDescription(data.reply.trim());
+        setAiTip('✨ AI polished description and added neighborly safety & porch handover guidelines.');
+      }
+    } catch (err) {
+      console.warn('AI Polish error:', err);
+    } finally {
+      setIsAiPolishing(false);
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -209,9 +248,22 @@ export function NewListingModal({
 
           {/* Description */}
           <div>
-            <label className="block text-xs font-semibold text-stone-800 mb-1">
-              Detailed Description & Context
-            </label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="block text-xs font-semibold text-stone-800">
+                Detailed Description &amp; Context
+              </label>
+
+              <button
+                type="button"
+                onClick={handleAiPolishListing}
+                disabled={!title.trim() || isAiPolishing}
+                className="flex items-center gap-1 px-2.5 py-0.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border border-emerald-300 rounded-lg text-[11px] font-semibold transition-all disabled:opacity-40 cursor-pointer active:scale-95"
+                title="Use Gemini to generate a warm, safe neighborly description with care tips"
+              >
+                <Sparkles className="w-3 h-3 text-emerald-700" />
+                <span>{isAiPolishing ? 'Drafting...' : '✨ AI Polish & Safety Advice'}</span>
+              </button>
+            </div>
             <textarea
               required
               rows={3}
@@ -220,6 +272,12 @@ export function NewListingModal({
               placeholder="Describe condition, context, what to expect, or any special considerations."
               className="w-full text-xs p-3 rounded-xl border border-stone-300 focus:border-emerald-600 focus:ring-1 focus:ring-emerald-600 focus:outline-none placeholder:text-stone-400"
             />
+            {aiTip && (
+              <div className="flex items-center gap-1.5 text-[11px] text-emerald-800 bg-emerald-50 border border-emerald-200 px-2.5 py-1 rounded-lg mt-1 animate-in fade-in">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                <span>{aiTip}</span>
+              </div>
+            )}
           </div>
 
           {/* Skill & Service Exchange Specific Inputs */}

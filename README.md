@@ -89,9 +89,18 @@
   - Mutations are queued to a pending synchronization queue and synced to Firestore once connection restores.
 - **Pickup Coordinator (`PickupCoordinatorModal.tsx`)**:
   - Doorstep handshake protocol with agreed pickup time windows, porch notes, and mutual completion confirmation.
+  - **Calendar Sync (.ics & Google Calendar)**: Generates one-tap calendar exports and direct Google Calendar links so neither neighbor forgets or flakes.
+  - **Printable Porch Drop Label**: Instant printable pickup tag ("Reserved on KijijiShare - Please Do Not Disturb") for contactless porch bins.
 
-### 8. Gemini & Veo 3 Multi-Modal AI Suite
+### 8. Neighborhood Circular Economy & Carbon Ledger
+- **Eco Impact Dashboard (`CommunityImpactModal.tsx`)**:
+  - Measures total embodied carbon avoided ($CO_2$e), landfill waste diverted (kg), and dollars kept in neighbor pockets.
+  - Category-level breakdown across power tools, childcare equipment, and mutual aid hours.
+  - Interactive **Household Circular Estimator** computing personal annual emissions offset with community pledge rewards.
+
+### 9. Gemini & Veo 3 Multi-Modal AI Suite
 Integrated through server-side proxy routes in `server.ts` utilizing the official `@google/genai` SDK:
+- **AI Listing Polish & Safety Advisor (`NewListingModal.tsx`)**: One-tap Gemini prompt that refines item descriptions with friendly tone, safety checks, and porch handover guidance.
 - **Community Concierge (`GeminiChatbot.tsx`)**: Multi-turn mediator powered by `gemini-3.5-flash`, `gemini-3.1-pro-preview`, or `gemini-3.1-flash-lite`.
 - **Google Maps Grounding Safe Meetup Finder (`MapsGroundingFinder.tsx`)**: Finds well-lit public transit hubs, libraries, and park pavilions for safe exchanges via `gemini-3.5-flash` with Google Maps tool grounding.
 - **Veo 3 Video Generator (`VeoVideoGenerator.tsx`)**: Generates community stories and neighborly showcase clips via `veo-3.1-fast-generate-preview` in 16:9 or 9:16 aspect ratios.
